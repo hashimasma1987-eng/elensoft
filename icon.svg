@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#162B1E"/>
+  <g transform="translate(56, 156) scale(1.5)">
+    <defs>
+      <linearGradient id="g1" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#2D6B45;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#1A2E1A;stop-opacity:1" />
+      </linearGradient>
+      <linearGradient id="g2" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#E8735A;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#C45D3E;stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <g transform="translate(10, 10)">
+      <path d="M 5 80 L 5 95 L 55 95" stroke="#A5D6A7" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <rect x="10" y="65" width="8" height="25" rx="4" fill="url(#g1)"/>
+      <rect x="22" y="45" width="8" height="45" rx="4" fill="url(#g1)"/>
+      <path d="M 34 95 L 34 35 C 34 20, 45 10, 55 5 C 45 15, 40 25, 38 35 Z" fill="url(#g2)"/>
+      <path d="M 38 80 L 38 40" stroke="#fff" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+      <circle cx="55" cy="5" r="2.5" fill="#C45D3E"/>
+    </g>
+    <g transform="translate(78, 32)">
+      <text x="0" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="900" fill="#fff" letter-spacing="2">ELIN</text>
+      <line x1="141" y1="-15" x2="149" y2="12" stroke="#C45D3E" stroke-width="5" stroke-linecap="round"/>
+      <text x="158" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="300" fill="#C45D3E" letter-spacing="2">SOFT</text>
+      <text x="3" y="25" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="700" fill="#A5D6A7" letter-spacing="4.5">SMART AGRICULTURAL ERP</text>
+    </g>
+  </g>
+</svg>
