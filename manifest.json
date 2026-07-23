@@ -1,7 +1,7 @@
 {
   "name": "نظام مشتل التنمية المحاسبي (ELEN SOFT)",
   "short_name": "ELEN SOFT",
-  "description": "نظام محاسبي وإداري متكامل لإدارة المشاتل",
+  "description": "نظام محاسبي وإداري متكامل لإدارة المشاتل الزراعية",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#162B1E",
@@ -14,18 +14,6 @@
       "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

@@ -587,10 +587,11 @@ function initDashboardCharts(){ var salesCtx = document.getElementById('dash-sal
 // شاشة التنبيهات (محدثة)
 // ==========================================
 function rAlerts() { 
-    // فلترة البيانات حسب الفرع
-    var fOps = (_currentBranch !== 'all') ? D.operation.filter(op => op.branch === _currentBranch) : D.operation;
-    var fOrds = (_currentBranch !== 'all') ? D.orders.filter(o => o.branch === _currentBranch) : D.orders;
-    var fInvs = (_currentBranch !== 'all') ? D.invoices.filter(i => i.branch === _currentBranch) : D.invoices;
+    // فلترة البيانات حسب الفرع واستبعاد المحذوفات (getActive)
+    var fOps = (_currentBranch !== 'all') ? getActive('operation').filter(op => op.branch === _currentBranch) : getActive('operation');
+    var fOrds = (_currentBranch !== 'all') ? getActive('orders').filter(o => o.branch === _currentBranch) : getActive('orders');
+    var fInv = (_currentBranch !== 'all') ? getActive('invoices').filter(i => i.branch === _currentBranch) : getActive('invoices');
+    var fDel = (_currentBranch !== 'all') ? getActive('delivered').filter(d => d.branch === _currentBranch) : getActive('delivered');
 
     var h ='<div class="toolbar no-print" style="margin-bottom:15px"><select onchange="_alertView=this.value;render()" style="padding:9px 14px;border:2px solid var(--bd);border-radius:9px;font-size:13px;background:var(--card);font-weight:800;cursor:pointer;width:100%;max-width:300px">'+ '<option value="nursery"'+(_alertView==='nursery'?' selected':'')+'>🌱 تنبيهات المشتل</option>'+ '<option value="orders"'+(_alertView==='orders'?' selected':'')+'>📋 تنبيهات الطلبيات</option>'+ '<option value="financial"'+(_alertView==='financial'?' selected':'')+'>💰 تنبيهات مالية</option></select></div>'; 
     
@@ -605,7 +606,7 @@ function rAlerts() {
             else if(ageDays <= 10) { expectedStage = 'إنبات'; action = 'مراقبة نمو الجذور'; badge = 'bdg-g'; } 
             else if(ageDays <= 21) { expectedStage = 'ضهور الأوراق (ترقيع/تشبيع)'; action = 'بدء الترقيع والتشبيع'; badge = 'bdg-y'; } 
             else if(ageDays <= 30) { expectedStage = 'مرحلة التقسية'; action = 'تقليل الري وتعريض للشمس'; badge = 'bdg-ac'; } 
-            else if(ageDays <= 35) { expectedStage = 'جاهز للبيع'; action = 'تهيئة للبيع والتسليم'; badge = 'bdg-g'; } 
+            else if(ageDays <= 40) { expectedStage = 'جاهز للبيع'; action = 'تهيئة للبيع والتسليم'; badge = 'bdg-g'; } 
             else { expectedStage = 'تجاوز وقت البيع'; action = '⚠️ إجراء عاجل: بيع أو ترحيل فوراً'; badge = 'bdg-r'; } 
             hasAlert = true; 
             h += '<tr><td><b>'+H(op.crop)+'</b></td><td class="num-highlight">'+ageDays+'</td><td><span class="bdg '+badge+'">'+expectedStage+'</span></td><td>'+action+'</td></tr>'; 
@@ -620,24 +621,45 @@ function rAlerts() {
             var remaining = Number(o.requested || 0) - Number(o.deliveredQty || 0); 
             if(remaining > 0) cropReservations[o.crop] += remaining; 
         }); 
+        
         var hasOverbooking = false; 
         var overbookingHtml = ''; 
+        
         for(var crop in cropReservations) { 
-            var plantedTotal = fOps.filter(op => op.crop === crop).reduce((s, op) => s + Number(op.planted || 0), 0); 
-            var fulfilledTotal = fOps.filter(op => op.crop === crop).reduce((s, op) => s + Number(op.fulfilled || 0), 0); 
-            var expectedSupply = Math.max(plantedTotal * 0.90, fulfilledTotal); 
-            var deliveredTotal = D.delivered.filter(d => d.crop === crop && (_currentBranch === 'all' || d.branch === _currentBranch)).reduce((s, d) => s + Number(d.qty || 0), 0); 
-            var baseAvailable = expectedSupply - deliveredTotal; 
             var reservedTotal = cropReservations[crop]; 
-            if (reservedTotal > baseAvailable) { 
+
+            // 1. المتوفر حالياً = المنجز - المباع (المسلم) - المحجوز (الطلبيات المعلقة)
+            var fulfilledTotal = fOps.filter(op => op.crop === crop).reduce((s, op) => s + Number(op.fulfilled || 0), 0); 
+            var soldTotal = fDel.filter(d => d.crop === crop).reduce((s, d) => s + Number(d.qty || 0), 0); 
+            var currentAvailable = fulfilledTotal - soldTotal - reservedTotal; 
+            
+            // 2. المتوقع قريباً = المزروع الذي لم يتجاوز 40 يوماً (العمر الافتراضي للجهوزية)
+            var pendingMatured = 0;
+            var today = new Date();
+            fOps.filter(op => op.crop === crop && op.status === 'pending').forEach(op => {
+                var ageDays = Math.floor((today - new Date(op.date)) / (1000 * 60 * 60 * 24)); 
+                // أي صنف زرع ولم يتجاوز 40 يوماً سينضم للمتوقع
+                if(ageDays <= 40) { 
+                    pendingMatured += Number(op.planted || 0); 
+                }
+            });
+            // خصم 10% فاقد تقديري
+            pendingMatured = pendingMatured * 0.90; 
+
+            // 3. إجمالي العرض المتوقع = المتوفر حالياً + المتوقع
+            var expectedSupply = currentAvailable + pendingMatured;
+            
+            // 4. المقارنة بين الحجز والإجمالي المتوقع
+            if (reservedTotal > expectedSupply) { 
                 hasOverbooking = true; 
-                var shortage = reservedTotal - baseAvailable; 
+                var shortage = reservedTotal - expectedSupply; 
                 overbookingHtml += '<div class="card" style="background:#FFF3E0;border-right:4px solid var(--ac);margin-bottom:8px;padding:12px">'; 
                 overbookingHtml += '<div style="display:flex;justify-content:space-between"><b style="color:var(--ac)">⚠️ حجز زائد عن الطاقة الإنتاجية</b><span style="font-size:10px;color:var(--mt)">النقص: '+fm(shortage)+'</span></div>'; 
-                overbookingHtml += '<div style="font-size:12px;margin-top:5px">إجمالي الكميات المتبقية لطلبيات <b>'+H(crop)+'</b> هي <b>'+fm(reservedTotal)+'</b><br>بينما المتوقع توفره للبيع هو <b>'+fm(Math.max(0, baseAvailable))+'</b></div></div>'; 
+                overbookingHtml += '<div style="font-size:12px;margin-top:5px;line-height:1.8">إجمالي الطلبيات المعلقة لصنف <b>'+H(crop)+'</b> هي <b>'+fm(reservedTotal)+'</b><br>المتوفر حالياً (بعد خصم المباع والمحجوز): <b>'+fm(currentAvailable)+'</b><br>المتوقع قريباً (مجاوز 40 يوماً وخصم 10% فاقد): <b>'+fm(pendingMatured)+'</b><br>إجمالي العرض المتوقع: <b>'+fm(expectedSupply)+'</b></div></div>'; 
             } 
         } 
         if(hasOverbooking) h += overbookingHtml; 
+        
         h += '<div class="tbl-wrap"><table><thead><tr><th>العميل</th><th>الصنف</th><th>نوع الحجز</th><th>تاريخ الاستحقاق</th><th>حالة التنبيه</th></tr></thead><tbody>'; 
         var hasAlert = false; 
         var today = new Date(); today.setHours(0,0,0,0); 
@@ -659,7 +681,7 @@ function rAlerts() {
     } else { 
         h += '<div class="card"><h4>💰 تنبيهات مالية</h4><div class="tbl-wrap"><table><thead><tr><th>النوع</th><th>التفاصيل</th></tr></thead><tbody>'; 
         var hasAlert = false; 
-        fInvs.filter(i => i.status !== 'paid').forEach(i => { 
+        fInv.filter(i => i.status !== 'paid').forEach(i => { 
             hasAlert = true; 
             h += '<tr><td><span class="bdg bdg-y">فاتورة غير مسددة</span></td><td>الفاتورة '+H(i.invoiceNo)+' للعميل '+H(i.customer)+' بمبلغ '+fm(i.total)+'</td></tr>'; 
         }); 
