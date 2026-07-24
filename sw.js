@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nursery-erp-netlify-v1';
+const CACHE_NAME = 'nursery-erp-cache-v7'; // تم تغيير الرقم إلى v7
 const urlsToCache = [
   './',
   './index.html',
@@ -7,10 +7,7 @@ const urlsToCache = [
   'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
 ];
 
 self.addEventListener('install', event => {
@@ -34,7 +31,6 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // استراتيجية (Network First) للصفحة الرئيسية لضمان تحديث النظام فوراً على Netlify
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).then(response => {
@@ -49,8 +45,6 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
-
-  // باقي الملفات (مكتبات، صور) نستخدم لها (Cache First) للتسريع
   event.respondWith(
     caches.match(event.request).then(response => {
       return response || fetch(event.request);
