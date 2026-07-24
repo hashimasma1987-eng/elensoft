@@ -370,7 +370,7 @@ async function initApp(){
     setTimeout(function() { render(); window.dispatchEvent(new Event('resize')); }, 100);
     setTimeout(function() { render(); }, 1500);
     setTimeout(function() { checkAutoBackup(); }, 2000);
-    initCalcDrag();
+    initCalcDrag();    
     if(curTab !== 'superadmin') { initOnboarding(); }
     setupIdleTimer();}
 async function checkAutoBackup() {
@@ -540,7 +540,7 @@ function applySettings() {
         if(currentUser) {
             currentUser.password = hashPassword(newPass.value);
             var users = getUsers();
-            var uIdx = users.findIndex(u => u.id === currentUser.id);
+            var uIdx = users.findIndex(function(u) { return u.id === currentUser.id; });
             if(uIdx !== -1) {
                 users[uIdx].password = currentUser.password;
                 saveUsers(users);
@@ -552,7 +552,7 @@ function applySettings() {
     var logoText = document.getElementById('logo-text'); if(logoText) logoText.textContent = getNurseryName(); 
     buildBottomBar(); closeM(); render(); 
     toast('تم حفظ الإعدادات بنجاح', 's'); 
-    setupIdleTimer(); // إعادة تشغيل مؤقت الخمول
+    setupIdleTimer(); 
 }
 function isInventoryLocked() { return localStorage.getItem('nr_inv_lock') === '1'; }
 function isPartialDeliveryAllowed() { return localStorage.getItem('nr_partial_delivery') === '1'; }
@@ -925,6 +925,7 @@ function setupIdleTimer() {
 }
 
 function lockSystemNow() {
+    // إخفاء المحتوى وإظهار شاشة القفل
     document.getElementById('content').style.filter = 'blur(10px)';
     document.getElementById('content').style.pointerEvents = 'none';
     
@@ -1408,7 +1409,7 @@ function closeFiscalYear(id){
     buildQuickNav();
 })();
 </script>
-<button</button></button></button> id="pwa-install-btn" style="position:fixed; bottom:140px; left:20px; z-index:9999; display:none; background:linear-gradient(135deg, var(--ac), #a0442c); color:#fff; border:none; padding:12px 18px; border-radius:30px; font-size:12px; font-weight:700; box-shadow:0 4px 15px rgba(196,93,62,0.4); cursor:pointer; align-items:center; gap:6px;">📲 تثبيت التطبيق</button>
+<!-- <button id="pwa-install-btn" style="position:fixed; bottom:140px; left:20px; z-index:9999; display:none; background:linear-gradient(135deg, var(--ac), #a044c); color:#fff; border:none; padding:12px 18px; border-radius:30px; font-size:12px; font-weight:700; box-shadow:0 4px 15px rgba(196,93,62,0.4); cursor:pointer; align-items:center; gap:6px;">📲 تثبيت التطبيق</button> -->
 <script>
 try {
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
