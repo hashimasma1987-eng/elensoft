@@ -276,7 +276,19 @@ function getDynamicList(key){try{var r=JSON.parse(localStorage.getItem('nr_'+key
 function accountsOptions(sel){var h='';(D.accounts||[]).forEach(function(a){h+='<option value="'+H(a.id)+'"'+(a.id===sel?' selected':'')+'>'+H(a.name)+'</option>'});return h}
 function searchableInput(id,items,placeholder,val,hasOther){var h='<div class="sselect" data-ssid="'+H(id)+'">';h+='<input type="text" class="sselect-input" id="mf-'+H(id)+'" placeholder="'+H(placeholder||'🔍 بحث...')+'" value="'+H(val||'')+'" autocomplete="off">';h+='<div class="sselect-dropdown">';items.forEach(function(it){h+='<div class="sselect-item" data-value="'+H(it)+'">'+H(it)+'</div>'});if(hasOther)h+='<div class="sselect-item ssel-add" data-value="__other__">➕ إضافة جديدة</div>';h+='</div></div>';return h}
 function initSearchableSelects() { document.querySelectorAll('.sselect').forEach(function(container) { if (container.dataset.init === '1') return; container.dataset.init = '1'; var input = container.querySelector('.sselect-input'); var dropdown = container.querySelector('.sselect-dropdown'); var items = container.querySelectorAll('.sselect-item'); if (!input || !dropdown) return; var ssid = container.dataset.ssid || ''; input.addEventListener('focus', function() { document.querySelectorAll('.sselect-dropdown.open').forEach(function(dd) { if (dd !== dropdown) dd.classList.remove('open'); }); var q = input.value; items.forEach(function(it) { if (it.classList.contains('ssel-add')) return; var t = it.textContent.toLowerCase(); it.style.display = !q || t.includes(q) ? '' : 'none'; }); dropdown.classList.add('open'); }); input.addEventListener('input', function() { var q = input.value; items.forEach(function(it) { if (it.classList.contains('ssel-add')) return; var t = it.textContent.toLowerCase(); it.style.display = !q || t.includes(q) ? '' : 'none'; }); dropdown.classList.add('open'); }); items.forEach(function(it) { it.addEventListener('mousedown', function(e) { e.preventDefault(); if (it.dataset.value === '__other__') { var n = prompt('أدخل القيمة الجديدة:'); if (n) { if (ssid === 'customer' || (ssid === 'stmt-entity' && _stmtType === 'client')) { if (!D.clients.find(function(x) { return x.name === n; })) { D.clients.push({id: uid(), name: n, phone: '', region: ''}); saveD('clients'); } } else if (ssid === 'supplier' || (ssid === 'stmt-entity' && _stmtType === 'supplier')) { if (!D.suppliers.find(function(x) { return x.name === n; })) { D.suppliers.push({id: uid(), name: n, phone: ''}); saveD('suppliers'); } } else if (ssid === 'stmt-entity' && _stmtType === 'employee') { if (!D.employees.find(function(x) { return x.name === n; })) { D.employees.push({id: uid(), name: n, phone: '', role: 'موظف', salary: 0, startDate: new Date().toISOString().split('T')[0], status: 'active'}); saveD('employees'); } } input.value = n; dropdown.classList.remove('open'); input.dispatchEvent(new Event('change', {bubbles: true})); } } else { input.value = it.dataset.value; dropdown.classList.remove('open'); if (input.id === 'mf-customer') { var ph = document.getElementById('mf-phone'); if (ph) { var c = D.clients.find(function(x) { return x.name === it.dataset.value; }); ph.value = c ? c.phone : ''; } } if (input.id === 'mf-stmt-entity') { _stmtEntity = it.dataset.value; render(); } } }); }); input.addEventListener('blur', function() { setTimeout(function() { dropdown.classList.remove('open'); }, 180); }); }); }
-function checkLogin(){
+async function verifyLicense(tenantId) {
+    if(!db) return false;
+    try {
+        var doc = await db.collection("system_control").doc("licenses").get();
+        if(doc.exists) {
+            var validList = doc.data().valid_tenants || [];
+            return validList.includes(tenantId);
+        }
+    } catch(e) { console.error("License check error", e); }
+    return false;
+}
+
+async function checkLogin(){
     if (window.location.hash === '#owner') {
         var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
         if (pass === 'ElenSoftOwner2026') {
@@ -292,15 +304,25 @@ function checkLogin(){
             var users=getUsers();
             if(!users.length){document.getElementById('login-overlay').classList.remove('hidden');document.getElementById('login-users').innerHTML='';document.getElementById('login-pass-area').style.display='none';document.getElementById('login-setup').style.display='block';return}
             document.getElementById('login-setup').style.display='none';
-            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('login-overlay').classList.add('hidden');
         }
         return;
     }
-        // شاشة إدخال رمز المشتل (لعزل المشاتل)
+
     if(!_nurseryId) {
-        var inputId = prompt('🏢 أدخل رمز المشتل (Nursery ID):');
+        var inputId = prompt('🏢 أدخل رمز المشتل المرخص:');
         if(inputId) {
-            _nurseryId = 'NUR-' + inputId.trim().toUpperCase();
+            var tentId = 'NUR-' + inputId.trim().toUpperCase();
+            toast('⏳ جاري التحقق من الترخيص...', 's');
+            var isLicensed = await verifyLicense(tentId);
+            if(!isLicensed) {
+                toast('⛔ هذا الرمز غير معتمد. يرجى التواصل مع الإدارة', 'e');
+                document.getElementById('login-overlay').classList.remove('hidden');
+                document.getElementById('login-users').innerHTML = '<div class="empty" style="color:var(--dn)">⛔ رمز المشتل غير مرخص</div>';
+                document.getElementById('login-pass-area').style.display='none';
+                return;
+            }
+            _nurseryId = tentId;
             localStorage.setItem('nr_tenant_id', _nurseryId);
         } else {
             document.getElementById('login-overlay').classList.remove('hidden');
@@ -310,7 +332,6 @@ function checkLogin(){
         }
     }
 
-    // تسجيل الدخول العادي
     applyLogo();
     var loginTitle = document.getElementById('login-title');
     if(loginTitle) loginTitle.textContent = getNurseryName();
@@ -481,7 +502,7 @@ function submitM() { if (handlers[mMode]) { var o = getFormData(); if (handlers[
 function getFormData() { var o = {}; document.querySelectorAll('#m-body [id^="mf-"]').forEach(function(el) { var key = el.id.replace('mf-', ''); o[key] = el.value; }); return o; }
 function paginationHtml(totalItems) { var totalPages = Math.ceil(totalItems / _itemsPerPage); if (totalPages <= 1) return ''; var h = '<div style="display:flex;justify-content:center;align-items:center;gap:15px;margin-top:15px;padding:10px;flex-wrap:wrap;">'; h += '<button class="btn btn-o" onclick="changePage(' + (_currentPage - 1) + ')" ' + (_currentPage === 1 ? 'disabled style="opacity:0.5;cursor:not-allowed"' : '') + '>⬅️ السابق</button>'; h += '<span style="font-size:12px;font-weight:700;background:var(--gn);color:#fff;padding:5px 12px;border-radius:15px;">صفحة ' + _currentPage + ' من ' + totalPages + '</span>'; h += '<button class="btn btn-o" onclick="changePage(' + (_currentPage + 1) + ')" ' + (_currentPage === totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed"' : '') + '>التالي ➡️</button>'; h += '</div>'; return h; }
 function changePage(p) { _currentPage = p; render(); var content = document.getElementById('content'); if(content) content.scrollTo({ top: 0, behavior: 'smooth' }); }
-function render() { var searchEl = document.querySelector('.toolbar .search-box input'); var searchVal = searchEl ? searchEl.value : ''; var el = document.getElementById('content'); var fn = window['r' + curTab.charAt(0).toUpperCase() + curTab.slice(1)]; if (fn) { el.innerHTML = fn(); if (curTab === 'analysis') initAnalysisCharts(); if (curTab === 'summary') initDashboardCharts(); if (curTab === 'statement') initSearchableSelects(); } else { el.innerHTML = '<div class="empty">⚠️ هذه الشاشة قيد التطوير</div>'; } var newSearchEl = document.querySelector('.toolbar .search-box input'); if (newSearchEl && searchVal) { newSearchEl.value = searchVal; newSearchEl.focus(); try { newSearchEl.setSelectionRange(searchVal.length, searchVal.length); } catch(e) {} } var toolbar = document.querySelector('.content .toolbar'); if (!toolbar) { var tempToolbar = document.createElement('div'); tempToolbar.className = 'toolbar'; tempToolbar.style.marginBottom = '12px'; tempToolbar.innerHTML = '<button class="btn btn-o" onclick="window.print()" style="flex-shrink:0">🖨️ طباعة</button><button class="btn btn-o" onclick="exportCurrentTableToExcel()" style="flex-shrink:0">📊 Excel</button>'; el.insertBefore(tempToolbar, el.firstChild); } else { if (!toolbar.querySelector('[onclick*="window.print"]')) { var printBtn = document.createElement('button'); printBtn.className = 'btn btn-o'; printBtn.innerHTML = '🖨️ طباعة'; printBtn.setAttribute('onclick', 'window.print()'); printBtn.style.cssText = 'flex-shrink:0'; toolbar.appendChild(printBtn); } if (!toolbar.querySelector('[onclick*="exportCurrentTableToExcel"]')) { var excelBtn = document.createElement('button'); excelBtn.className = 'btn btn-o'; excelBtn.innerHTML = '📊 Excel'; excelBtn.setAttribute('onclick', 'exportCurrentTableToExcel()'); excelBtn.style.cssText = 'flex-shrink:0'; toolbar.appendChild(excelBtn); } } }
+function render() { var searchEl = document.querySelector('.toolbar .search-box input'); var searchVal = searchEl ? searchEl.value : ''; var el = document.getElementById('content'); var fn = window['r' + curTab.charAt(0).toUpperCase() + curTab.slice(1)]; if (fn) { el.innerHTML = fn(); if (curTab === 'analysis') initAnalysisCharts(); if (curTab === 'summary') initDashboardCharts(); if (curTab === 'statement') initSearchableSelects(); if (curTab === 'superadmin') loadTenantLicenses(); } else { el.innerHTML = '<div class="empty">⚠️ هذه الشاشة قيد التطوير</div>'; } var newSearchEl = document.querySelector('.toolbar .search-box input'); if (newSearchEl && searchVal) { newSearchEl.value = searchVal; newSearchEl.focus(); try { newSearchEl.setSelectionRange(searchVal.length, searchVal.length); } catch(e) {} } var toolbar = document.querySelector('.content .toolbar'); if (!toolbar) { var tempToolbar = document.createElement('div'); tempToolbar.className = 'toolbar'; tempToolbar.style.marginBottom = '12px'; tempToolbar.innerHTML = '<button class="btn btn-o" onclick="window.print()" style="flex-shrink:0">🖨️ طباعة</button><button class="btn btn-o" onclick="exportCurrentTableToExcel()" style="flex-shrink:0">📊 Excel</button>'; el.insertBefore(tempToolbar, el.firstChild); } else { if (!toolbar.querySelector('[onclick*="window.print"]')) { var printBtn = document.createElement('button'); printBtn.className = 'btn btn-o'; printBtn.innerHTML = '🖨️ طباعة'; printBtn.setAttribute('onclick', 'window.print()'); printBtn.style.cssText = 'flex-shrink:0'; toolbar.appendChild(printBtn); } if (!toolbar.querySelector('[onclick*="exportCurrentTableToExcel"]')) { var excelBtn = document.createElement('button'); excelBtn.className = 'btn btn-o'; excelBtn.innerHTML = '📊 Excel'; excelBtn.setAttribute('onclick', 'exportCurrentTableToExcel()'); excelBtn.style.cssText = 'flex-shrink:0'; toolbar.appendChild(excelBtn); } } }
 function goToSearch(key, query) { var allowed = getAllowedScreens(); if(!allowed.includes(key)) key = allowed[0] || 'summary'; curTab = key; _currentPage = 1; buildTabs(); _searchQuery = query; render(); window.scrollTo(0, 0); }
 function go(key) { var allowed = getAllowedScreens(); if(!allowed.includes(key)) key = allowed[0] || 'summary'; curTab = key; _searchQuery = ''; _currentPage = 1; buildTabs(); render(); window.scrollTo(0, 0); }
 function openGlobalSearch() { mMode = 'global-search'; openM('🔍 البحث الشامل في النظام', [{name:'q', label:'ابحث عن (عميل، فاتورة، صنف، رقم هاتف...)', attr:'oninput="doGlobalSearch(this.value)" autofocus'}]); document.getElementById('m-body').innerHTML += '<div id="global-search-results" style="margin-top:15px;"></div>'; document.getElementById('m-foot').innerHTML = ''; setTimeout(function() { var q = document.getElementById('mf-q'); if(q) q.focus(); }, 100); }
@@ -1556,7 +1577,50 @@ function rSuperadmin() {
         h += '</div>';
     });
     h += '</div>';
-    return h; 
+        h += '<div class="card" style="border:1px solid var(--gn)"><h4 style="color:var(--gn);margin-bottom:10px">🔑 إدارة تراخيص المشاتل</h4><p style="font-size:11px;color:var(--mt);margin-bottom:10px">قم بإضافة رمز المشتل هنا لاعتماده والسماح للعميل باستخدامه.</p><div style="display:flex;gap:5px;margin-bottom:10px"><input id="new-tenant-id" placeholder="مثال: 001 أو ALMADINA" style="flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px"><button class="btn btn-g" onclick="addTenantLicense()">➕ اعتماد</button></div><div id="tenant-list" style="font-size:12px;">جاري التحميل...</div></div>';return h; 
+}
+async function loadTenantLicenses() {
+    var listDiv = document.getElementById('tenant-list');
+    if(!listDiv) return;
+    try {
+        var doc = await db.collection("system_control").doc("licenses").get();
+        var arr = (doc.exists && doc.data().valid_tenants) ? doc.data().valid_tenants : [];
+        if(arr.length === 0) { listDiv.innerHTML = '<div class="empty">لا توجد تراخيص معتمدة بعد</div>'; return; }
+        var html = '<div class="tbl-wrap"><table><thead><tr><th>رمز المشتل المعتمد</th><th>إجراء</th></tr></thead><tbody>';
+        arr.forEach(function(t) {
+            html += '<tr><td><b>'+H(t)+'</b></td><td><button class="btn btn-d btn-i" onclick="removeTenantLicense(\''+t+'\')">🗑️</button></td></tr>';
+        });
+        html += '</tbody></table></div>';
+        listDiv.innerHTML = html;
+    } catch(e) { listDiv.innerHTML = '<div class="empty">خطأ في تحميل التراخيص</div>'; }
+}
+async function addTenantLicense() {
+    var inp = document.getElementById('new-tenant-id');
+    if(!inp || !inp.value) return;
+    var newId = 'NUR-' + inp.value.trim().toUpperCase();
+    try {
+        var docRef = db.collection("system_control").doc("licenses");
+        var doc = await docRef.get();
+        var arr = (doc.exists && doc.data().valid_tenants) ? doc.data().valid_tenants : [];
+        if(arr.includes(newId)) { toast('⚠️ الرمز موجود مسبقاً', 'e'); return; }
+        arr.push(newId);
+        await docRef.set({ valid_tenants: arr }, { merge: true });
+        toast('✅ تم اعتماد المشتل بنجاح', 's');
+        inp.value = '';
+        loadTenantLicenses();
+    } catch(e) { toast('خطأ في الحفظ', 'e'); }
+}
+async function removeTenantLicense(id) {
+    if(!confirm('حذف ترخيص المشتل '+id+'؟ سيمنعهم من الدخول.')) return;
+    try {
+        var docRef = db.collection("system_control").doc("licenses");
+        var doc = await docRef.get();
+        var arr = (doc.exists && doc.data().valid_tenants) ? doc.data().valid_tenants : [];
+        arr = arr.filter(function(t){ return t !== id; });
+        await docRef.set({ valid_tenants: arr }, { merge: true });
+        toast('تم الحذف', 's');
+        loadTenantLicenses();
+    } catch(e) { toast('خطأ', 'e'); }
 }
 function toggleFeature(key) {
     var current = localStorage.getItem(key);
