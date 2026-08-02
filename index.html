@@ -424,6 +424,9 @@ async function checkAutoBackup() {
 }
 function syncIdCounter() { var maxId = 0; DATA_KEYS.forEach(function(k) { (D[k] || []).forEach(function(item) { if (item.id && Number(item.id) > maxId) { maxId = Number(item.id); } }); }); _idC = maxId + 1; }
 async function loadD(){
+    var contentEl = document.getElementById('content');
+    if(contentEl) contentEl.innerHTML = '<div class="empty" style="padding:50px;">⏳ جاري تحميل البيانات، يرجى الانتظار...</div>';
+    
     if (db && _nurseryId) {
         try {
             const snapshot = await db.collection("tenants").doc(_nurseryId).collection("app_data").get();
@@ -435,10 +438,14 @@ async function loadD(){
                     }
                 }
                 var localKey = _nurseryId + '_' + doc.id;
-                if (localforageConfig) localforageConfig.setItem(localKey, JSON.stringify(d.data));
-                else localStorage.setItem(localKey, JSON.stringify(d.data));
+                if (typeof localforage !== 'undefined') {
+                    if(!localforageConfig) localforageConfig = localforage.createInstance({ name: 'nursery-erp', storeName: 'nursery_db' });
+                    localforageConfig.setItem(localKey, JSON.stringify(d.data));
+                } else {
+                    try { localStorage.setItem(localKey, JSON.stringify(d.data)); } catch(e){}
+                }
             });
-            console.log('✅ تمت مزامنة بيانات المشتل (' + _nurseryId + ') من Firebase');
+            console.log('✅ تمت مزامنة بيانات المشتل من Firebase');
         } catch(e) { console.error("Firebase Load Error", e); }
     }
 
@@ -448,21 +455,37 @@ async function loadD(){
         var localKey = _nurseryId ? (_nurseryId + '_' + k) : ('nr_'+k);
         try {
             var val = null;
-            if (localforageConfig) { val = await localforageConfig.getItem(localKey); }
+            if (typeof localforage !== 'undefined') {
+                if(!localforageConfig) localforageConfig = localforage.createInstance({ name: 'nursery-erp', storeName: 'nursery_db' });
+                val = await localforageConfig.getItem(localKey);
+            }
             if(val === null) {
-                var oldVal = localStorage.getItem(localKey) || localStorage.getItem('nr_'+k); // البحث عن البيانات القديمة
+                var oldVal = localStorage.getItem(localKey) || localStorage.getItem('nr_'+k);
                 if(oldVal) { 
-                    D[k] = JSON.parse(oldVal); 
-                    if (localforageConfig) await localforageConfig.setItem(localKey, oldVal); 
-                    if (db && _nurseryId) {
-                        db.collection("tenants").doc(_nurseryId).collection("app_data").doc(k).set({ data: D[k], updatedAt: new Date().toISOString() });
+                    try {
+                        D[k] = JSON.parse(oldVal); 
+                        if (typeof localforage !== 'undefined') localforageConfig.setItem(localKey, oldVal); 
+                        if (db && _nurseryId) {
+                            db.collection("tenants").doc(_nurseryId).collection("app_data").doc(k).set({ data: D[k], updatedAt: new Date().toISOString() });
+                        }
+                    } catch(parseErr) {
+                        console.error("Parse error for key:", k, parseErr);
+                        D[k] = [];
                     }
                 }
                 else { if(!D[k]) D[k] = []; }
             } else {
-                if(!D[k]) D[k] = val ? JSON.parse(val) : (localStorage.getItem(localKey) ? JSON.parse(localStorage.getItem(localKey)) : []);
+                try {
+                    if(!D[k]) D[k] = val ? JSON.parse(val) : [];
+                } catch(parseErr) {
+                    console.error("Parse error for key:", k, parseErr);
+                    D[k] = [];
+                }
             }
-        } catch(e) { D[k] = localStorage.getItem(localKey) ? JSON.parse(localStorage.getItem(localKey)) : []; }
+        } catch(e) { 
+            console.error("Load error for key:", k, e);
+            D[k] = []; 
+        }
     }
 
     if(D.items.length>0&&typeof D.items[0]==='string'){D.items=[];}
@@ -471,36 +494,33 @@ async function loadD(){
     if(!D.suppliers.length)D.suppliers=[{id:201,name:'مؤسسة الزراعة',phone:'0551112222'}];
     if(!D.accounts.length) D.accounts=[{id:'acc_cash',name:'الصندوق',type:'asset',category:'أصول متداولة'},{id:'acc_bank',name:'البنك',type:'asset',category:'أصول متداولة'},{id:'acc_ar',name:'عملاء',type:'asset',category:'أصول متداولة'},{id:'acc_inventory',name:'المخزون',type:'asset',category:'أصول متداولة'},{id:'acc_advances',name:'سلف الموظفين',type:'asset',category:'أصول متداولة'},{id:'acc_fixed_assets',name:'الأصول الثابتة',type:'asset',category:'أصول ثابتة'},{id:'acc_accum_dep',name:'مجمع الإهلاك',type:'asset',category:'أصول ثابتة'},{id:'acc_ap',name:'موردون',type:'liability',category:'خصوم متداولة'},{id:'acc_vat',name:'الضريبة',type:'liability',category:'خصوم متداولة'},{id:'acc_opening_bal_eq',name:'أرصدة أول المدة',type:'equity',category:'حقوق الملكية'},{id:'acc_capital',name:'رأس المال',type:'equity',category:'حقوق الملكية'},{id:'acc_sales',name:'المبيعات',type:'revenue',category:'إيرادات'},{id:'acc_sales_returns',name:'مرتجع المبيعات',type:'revenue',category:'إيرادات'},{id:'acc_opex',name:'المصروفات العمومية',type:'expense',category:'مصروفات'},{id:'acc_purchase',name:'المشتريات',type:'expense',category:'تكاليف'},{id:'acc_purchase_returns',name:'مرتجع المشتريات',type:'expense',category:'تكاليف'},{id:'acc_salary',name:'الرواتب',type:'expense',category:'مصروفات'},{id:'acc_dep_expense',name:'إهلاك الأصول',type:'expense',category:'مصروفات'},{id:'acc_inv_variance',name:'فروق الجرد',type:'expense',category:'مصروفات'}];
     if(!D.ledger)D.ledger=[];if(!D.auditLog)D.auditLog=[];if(!D.payroll)D.payroll=[];if(!D.fixedAssets)D.fixedAssets=[];if(!D.openingBalances)D.openingBalances=[];if(!D.inventoryAdj)D.inventoryAdj=[];if(!D.waste)D.waste=[];if(!D.returns)D.returns=[];if(!D.attendance)D.attendance=[];if(!D.itemOpening)D.itemOpening=[];if(!D.fiscalYears)D.fiscalYears=[];if(!D.shifts)D.shifts=[];
-    if(needsMigration !== 'done' && localforageConfig) { localStorage.setItem('nr_needs_migration', 'done'); }
+    if(needsMigration !== 'done' && (typeof localforage !== 'undefined')) { localStorage.setItem('nr_needs_migration', 'done'); }
     syncIdCounter(); 
 }
 function saveD(key){
     if(key){
         var el=document.getElementById('save-indicator');
-        el.textContent='✓ جاري الحفظ...'; 
-        el.style.opacity='1';
+        if(el) { el.textContent='✓ جاري الحفظ...'; el.style.opacity='1'; }
         var localKey = _nurseryId ? (_nurseryId + '_' + key) : ('nr_'+key);
         var dataStr = JSON.stringify(D[key]);
-        if (localforageConfig) { 
+        
+        if (typeof localforage !== 'undefined') {
+            if(!localforageConfig) localforageConfig = localforage.createInstance({ name: 'nursery-erp', storeName: 'nursery_db' });
             localforageConfig.setItem(localKey, dataStr).catch(function(e){ 
                 console.error(e); 
                 toast('⚠️ تعذر حفظ البيانات محلياً (الذاكرة ممتلئة)', 'e');
-            }); 
-        }
-        else { 
+            });
+        } else {
             try { localStorage.setItem(localKey, dataStr); } 
             catch(e) { toast('⚠️ تعذر حفظ البيانات محلياً (الذاكرة ممتلئة)', 'e'); }
         }
-        el.textContent='✓ تم الحفظ';
-        setTimeout(function(){ el.style.opacity='0'; }, 1200);
+        if(el) { el.textContent='✓ تم الحفظ'; setTimeout(function(){ el.style.opacity='0'; }, 1200); }
+        
         if (db && _nurseryId) {
             db.collection("tenants").doc(_nurseryId).collection("app_data").doc(key).set({
                 data: D[key],
                 updatedAt: new Date().toISOString()
-            }).catch(function(e){ 
-                console.error("Firebase Sync Error:", e); 
-                toast('⚠️ فشلت المزامنة السحابية، تأكد من الإنترنت وقواعد Firebase', 'e');
-            });
+            }).catch(function(e){ console.error("Firebase Sync Error:", e); });
         }
     }
 }
@@ -523,7 +543,30 @@ function buildTabs(){ var h='';var allowed=getAllowedScreens();SHEETS.forEach(fu
 function buildBottomBar(){ var utilDisplay = localStorage.getItem('nr_show_util_btns') !== '0' ? 'flex' : 'none'; var h = '<span id="utility-btns" style="display:'+utilDisplay+';gap:6px;flex-wrap:nowrap;">'+ '<button class="fb" onclick="saveAll()">💾</button>'+ '<button class="fb" onclick="expSheet()">📤</button>'+ '<button class="fb" onclick="document.getElementById(\'imp-f\').click()">📥</button>'+ '<button class="fb" onclick="backupData()">🗃️</button>'+ '<button class="fb" onclick="document.getElementById(\'restore-f\').click()">📂</button>'+ '</span>'; document.getElementById('bottom-bar').innerHTML=h; var calcWidget = document.getElementById('float-calc-widget'); if(calcWidget) { var calcDisplay = localStorage.getItem('nr_show_calc_btn') !== '0' ? 'block' : 'none'; calcWidget.style.display = calcDisplay; } } 
 function expSheet(){var data=D[curTab]||[];if(!data.length){toast('لا توجد بيانات للتصدير','e');return}if(typeof XLSX === 'undefined'){toast('⚠️ مكتبة التصدير لم تحمل','e');return}try{var cleanData = data.map(function(r){var cleanRow = {};for(var key in r){if(typeof r[key] === 'object' && r[key] !== null){cleanRow[key] = JSON.stringify(r[key]);} else {cleanRow[key] = r[key];}}return cleanRow;});var ws=XLSX.utils.json_to_sheet(cleanData);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,curTab+'.xlsx');toast('✅ تم تجهيز ملف التصدير','s');}catch(e){console.error(e);toast('⚠️ المتصفح حظر التنزيل','e');}}
 function exportCurrentTableToExcel(){ var tables=document.querySelectorAll('#content .tbl-wrap table'); if(!tables.length){toast('⚠️ لا يوجد جدول للتصدير في هذه الشاشة','e');return;} if(typeof XLSX === 'undefined'){toast('⚠️ مكتبة التصدير لم تحمل','e');return;} var wb=XLSX.utils.book_new(); var sheetAdded=false; tables.forEach(function(table,idx){ var clone=table.cloneNode(true); clone.querySelectorAll('.action-col, .no-print, button, .print-dropdown').forEach(function(el){el.remove();}); var ws=XLSX.utils.table_to_sheet(clone); XLSX.utils.book_append_sheet(wb,ws,'تقرير '+(idx+1)); sheetAdded=true; }); if(sheetAdded){ XLSX.writeFile(wb, curTab+'_report.xlsx'); toast('✅ تم تجهيز ملف Excel','s'); } }
-function handleImp(e){ var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var data=new Uint8Array(ev.target.result);var wb=XLSX.read(data,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var jd=XLSX.utils.sheet_to_json(ws,{defval:''});var currentRegions = getDynamicList('regions');var regionsUpdated = false;function cleanVal(v){ return (v === '*' || v === '') ? '' : v; }function getCol(row, keywords) {var keys = Object.keys(row);for(var i=0; i<keys.length; i++) {var k = keys[i].toLowerCase();for(var j=0; j<keywords.length; j++) {if(k.includes(keywords[j])) return row[keys[i]];}}return '';}var cleanData = jd.map(function(r){var obj = {};if(curTab === 'clients' || curTab === 'suppliers') {obj.name = cleanVal(getCol(r, ['name', 'اسم', 'العميل', 'المورد', 'الجهة']));obj.phone = String(cleanVal(getCol(r, ['phone', 'هاتف', 'جوال', 'موبايل', 'رقم'])));if(curTab === 'clients') {obj.region = cleanVal(getCol(r, ['region', 'منطق', 'المكان', 'العنوان', 'القرية', 'الحارة']));if(obj.region && !currentRegions.includes(obj.region)) {currentRegions.push(obj.region);regionsUpdated = true;}}} else if(curTab === 'invoices') {obj.id = uid();obj.date = cleanVal(getCol(r, ['date', 'تاريخ']));obj.invoiceNo = cleanVal(getCol(r, ['invoiceNo', 'رقم', 'فاتورة']));obj.customer = cleanVal(getCol(r, ['customer', 'العميل', 'اسم العميل']));obj.crop = cleanVal(getCol(r, ['crop', 'الصنف', 'المحصول', 'المنتج']));obj.qty = Number(getCol(r, ['qty', 'الكمية', 'عدد'])) || 0;obj.total = Number(getCol(r, ['total', 'الإجمالي', 'المبلغ', 'القيمة'])) || 0;obj.paid = Number(getCol(r, ['paid', 'المدفوع', 'مدفوع'])) || 0;obj.remaining = obj.total - obj.paid;obj.status = obj.remaining <= 0 ? 'paid' : 'unpaid';obj.type = 'sale';obj.currency = 'YER';obj.exchangeRate = 1;obj.amountBase = obj.total;obj.totalBase = obj.total;obj.paidBase = obj.paid;} else if(curTab === 'expenses') {obj.id = uid();obj.date = cleanVal(getCol(r, ['date', 'تاريخ']));obj.category = cleanVal(getCol(r, ['category', 'الفئة', 'البند', 'البيان']));obj.amount = Number(getCol(r, ['amount', 'المبلغ', 'الإجمالي', 'القيمة'])) || 0;obj.description = cleanVal(getCol(r, ['description', 'ملاحظات', 'تفاصيل']));} else if(curTab === 'purchaseInvoices') {obj.id = uid();obj.date = cleanVal(getCol(r, ['date', 'تاريخ']));obj.invoiceNo = cleanVal(getCol(r, ['invoiceNo', 'رقم', 'فاتورة']));obj.supplier = cleanVal(getCol(r, ['supplier', 'المورد', 'اسم المورد']));obj.item = cleanVal(getCol(r, ['item', 'الصنف', 'المحصول']));obj.purchQty = Number(getCol(r, ['purchQty', 'qty', 'الكمية'])) || 0;obj.price = Number(getCol(r, ['price', 'السعر'])) || 0;obj.total = Number(getCol(r, ['total', 'الإجمالي', 'المبلغ'])) || 0;} else {obj = r;for(var key in obj) { if(obj[key] === '*') obj[key] = ''; }}if(!obj.id) obj.id = uid();return obj;}).filter(r => Object.keys(r).length > 1 && (r.name || r.customer || r.supplier || r.amount || r.date || r.invoiceNo));if(regionsUpdated) saveDynamicList('regions', currentRegions);if(cleanData.length === 0){ toast('⚠️ لم يتم العثور على بيانات صحيحة في الملف','e'); return; }D[curTab] = (D[curTab] || []).concat(cleanData);syncIdCounter();saveD(curTab);render();if (typeof initDashboardCharts === 'function') initDashboardCharts();if (typeof initAnalysisCharts === 'function') initAnalysisCharts();var successMsg = '✅ تم استيراد ' + cleanData.length + ' سجل بنجاح';if(regionsUpdated) successMsg += ' وتحديث قائمة المناطق';toast(successMsg, 's');}catch(err){toast('⚠️ خطأ في قراءة الملف','e');console.error(err);}};reader.readAsArrayBuffer(f);e.target.value='';}
+function handleImp(e){ var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var data=new Uint8Array(ev.target.result);var wb=XLSX.read(data,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var jd=XLSX.utils.sheet_to_json(ws,{defval:''});var currentRegions = getDynamicList('regions');var regionsUpdated = false;function cleanVal(v){ return (v === '*' || v === '') ? '' : v; }function getCol(row, keywords) {var keys = Object.keys(row);for(var i=0; i<keys.length; i++) {var k = keys[i].toLowerCase();for(var j=0; j<keywords.length; j++) {if(k.includes(keywords[j])) return row[keys[i]];}}return '';}var cleanData = jd.map(function(r){var obj = {};if(curTab === 'clients' || curTab === 'suppliers') {obj.name = cleanVal(getCol(r, ['name', 'اسم', 'العميل', 'المورد', 'الجهة']));obj.phone = String(cleanVal(getCol(r, ['phone', 'هاتف', 'جوال', 'موبايل', 'رقم'])));if(curTab === 'clients') {obj.region = cleanVal(getCol(r, ['region', 'منطق', 'المكان', 'العنوان', 'القرية', 'الحارة']));if(obj.region && !currentRegions.includes(obj.region)) {currentRegions.push(obj.region);regionsUpdated = true;}}} else if(curTab === 'invoices') {obj.id = uid();obj.date = parseExcelDate(cleanVal(getCol(r, ['date', 'تاريخ'])));obj.invoiceNo = cleanVal(getCol(r, ['invoiceNo', 'رقم', 'فاتورة']));obj.customer = cleanVal(getCol(r, ['customer', 'العميل', 'اسم العميل']));obj.crop = cleanVal(getCol(r, ['crop', 'الصنف', 'المحصول', 'المنتج']));obj.qty = Number(getCol(r, ['qty', 'الكمية', 'عدد'])) || 0;obj.total = Number(getCol(r, ['total', 'الإجمالي', 'المبلغ', 'القيمة'])) || 0;obj.paid = Number(getCol(r, ['paid', 'المدفوع', 'مدفوع'])) || 0;obj.remaining = obj.total - obj.paid;obj.status = obj.remaining <= 0 ? 'paid' : 'unpaid';obj.type = 'sale';obj.currency = 'YER';obj.exchangeRate = 1;obj.amountBase = obj.total;obj.totalBase = obj.total;obj.paidBase = obj.paid;} else if(curTab === 'expenses') {obj.id = uid();obj.date = parseExcelDate(cleanVal(getCol(r, ['date', 'تاريخ'])));obj.category = cleanVal(getCol(r, ['category', 'الفئة', 'البند', 'البيان']));obj.amount = Number(getCol(r, ['amount', 'المبلغ', 'الإجمالي', 'القيمة'])) || 0;obj.description = cleanVal(getCol(r, ['description', 'ملاحظات', 'تفاصيل']));} else if(curTab === 'purchaseInvoices') {obj.id = uid();obj.date = parseExcelDate(cleanVal(getCol(r, ['date', 'تاريخ'])));obj.invoiceNo = cleanVal(getCol(r, ['invoiceNo', 'رقم', 'فاتورة']));obj.supplier = cleanVal(getCol(r, ['supplier', 'المورد', 'اسم المورد']));obj.item = cleanVal(getCol(r, ['item', 'الصنف', 'المحصول']));obj.purchQty = Number(getCol(r, ['purchQty', 'qty', 'الكمية'])) || 0;obj.price = Number(getCol(r, ['price', 'السعر'])) || 0;obj.total = Number(getCol(r, ['total', 'الإجمالي', 'المبلغ'])) || 0;} else {obj = r;for(var key in obj) { if(obj[key] === '*') obj[key] = ''; }}if(!obj.id) obj.id = uid();return obj;}).filter(r => Object.keys(r).length > 1 && (r.name || r.customer || r.supplier || r.amount || r.date || r.invoiceNo));if(regionsUpdated) saveDynamicList('regions', currentRegions);if(cleanData.length === 0){ toast('⚠️ لم يتم العثور على بيانات صحيحة في الملف','e'); return; }D[curTab] = (D[curTab] || []).concat(cleanData);syncIdCounter();saveD(curTab);render();if (typeof initDashboardCharts === 'function') initDashboardCharts();if (typeof initAnalysisCharts === 'function') initAnalysisCharts();var successMsg = '✅ تم استيراد ' + cleanData.length + ' سجل بنجاح';if(regionsUpdated) successMsg += ' وتحديث قائمة المناطق';toast(successMsg, 's');}catch(err){toast('⚠️ خطأ في قراءة الملف','e');console.error(err);}};reader.readAsArrayBuffer(f);e.target.value='';}
+function parseExcelDate(val) {
+    if(!val) return '';
+    if(typeof val === 'number') {
+        // تحويل الرقم التسلسلي إلى تاريخ
+        var date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        var yyyy = date.getUTCFullYear();
+        var mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+        var dd = String(date.getUTCDate()).padStart(2, '0');
+        return yyyy + '-' + mm + '-' + dd;
+    }
+    // إذا كان نصاً، تأكد من أنه بصيغة YYYY-MM-DD
+    var str = String(val).trim();
+    if(str.indexOf('/') !== -1) {
+        var parts = str.split('/');
+        if(parts.length === 3) {
+            var y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+            var m = parts[0].length === 1 ? '0' + parts[0] : parts[0];
+            var d = parts[1].length === 1 ? '0' + parts[1] : parts[1];
+            return y + '-' + m + '-' + d;
+        }
+    }
+    return str;
+}
 function backupData(){try {var b={_bak:true};DATA_KEYS.forEach(function(k){b[k]=D[k]});var bl=new Blob([JSON.stringify(b,null,2)],{type:'application/json'});var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download='backup_'+new Date().toISOString().split('T')[0]+'.json';document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(u);}, 150);toast('✅ تم تجهيز النسخة الاحتياطية','s');} catch(e) {console.error(e);toast('⚠️ تعذر إنشاء النسخة الاحتياطية','e');}}
 function restoreBackup(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){try{var d=JSON.parse(ev.target.result);DATA_KEYS.forEach(function(k){if(d[k]){D[k]=d[k];saveD(k)}});syncIdCounter(); render();toast('تمت الاستعادة','s')}catch(err){toast('خطأ','e')}};reader.readAsText(f);e.target.value=''}
 function openM(title, fields) { document.getElementById('m-title').textContent = title; var body = document.getElementById('m-body'); var h = ''; var currentRow = ''; fields.forEach(function(f) { if (f.row === 'start' && !currentRow) { currentRow = 'open'; h += '<div class="form-row">'; } if (f.type === 'html') { h += f.html; } else { h += '<div class="fg"><label>' + H(f.label) + '</label>'; var val = f.value !== undefined ? f.value : ''; var attr = f.attr || ''; if (f.type === 'select' || f.dynKey) { h += '<select id="mf-' + f.name + '" ' + attr + (f.dynKey ? ' onchange="handleDynOpts(this,\''+f.dynKey+'\')" data-prev="'+val+'"' : '') + '>' + (f.options||'') + '</select>'; } else if (f.type === 'searchselect') { h += searchableInput(f.name, f.searchItems || [], f.placeholder, val, f.hasOther); } else if (f.type === 'textarea') { h += '<textarea id="mf-' + f.name + '" ' + attr + '>' + H(val) + '</textarea>'; } else { h += '<input type="' + (f.type || 'text') + '" id="mf-' + f.name + '" value="' + H(val) + '" ' + attr + '>'; } h += '</div>'; } if (f.row === 'end') { currentRow = ''; h += '</div>'; } }); body.innerHTML = h; body.querySelectorAll('[onclick*="openCalcPad"]').forEach(function(inp) { inp.removeAttribute('onclick'); inp.setAttribute('inputmode', 'decimal'); inp.setAttribute('pattern', '[0-9]*'); inp.setAttribute('type', 'number'); inp.style.textAlign = 'right'; inp.style.direction = 'ltr'; }); document.getElementById('m-foot').innerHTML = '<button class="btn btn-g" onclick="submitM()">💾 حفظ</button>'; initSearchableSelects(); document.getElementById('modal').classList.add('open'); }
