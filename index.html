@@ -449,9 +449,15 @@ async function loadD(){
         try {
             var val = null;
             if (localforageConfig) { val = await localforageConfig.getItem(localKey); }
-            if(val === null && needsMigration !== 'done') {
-                var oldVal = localStorage.getItem('nr_'+k);
-                if(oldVal) { D[k] = JSON.parse(oldVal); if (localforageConfig) await localforageConfig.setItem(localKey, oldVal); }
+            if(val === null) {
+                var oldVal = localStorage.getItem(localKey) || localStorage.getItem('nr_'+k); // البحث عن البيانات القديمة
+                if(oldVal) { 
+                    D[k] = JSON.parse(oldVal); 
+                    if (localforageConfig) await localforageConfig.setItem(localKey, oldVal); 
+                    if (db && _nurseryId) {
+                        db.collection("tenants").doc(_nurseryId).collection("app_data").doc(k).set({ data: D[k], updatedAt: new Date().toISOString() });
+                    }
+                }
                 else { if(!D[k]) D[k] = []; }
             } else {
                 if(!D[k]) D[k] = val ? JSON.parse(val) : (localStorage.getItem(localKey) ? JSON.parse(localStorage.getItem(localKey)) : []);
@@ -475,15 +481,26 @@ function saveD(key){
         el.style.opacity='1';
         var localKey = _nurseryId ? (_nurseryId + '_' + key) : ('nr_'+key);
         var dataStr = JSON.stringify(D[key]);
-        if (localforageConfig) { localforageConfig.setItem(localKey, dataStr).catch(function(e){ console.error(e); }); }
-        else { localStorage.setItem(localKey, dataStr); }
+        if (localforageConfig) { 
+            localforageConfig.setItem(localKey, dataStr).catch(function(e){ 
+                console.error(e); 
+                toast('⚠️ تعذر حفظ البيانات محلياً (الذاكرة ممتلئة)', 'e');
+            }); 
+        }
+        else { 
+            try { localStorage.setItem(localKey, dataStr); } 
+            catch(e) { toast('⚠️ تعذر حفظ البيانات محلياً (الذاكرة ممتلئة)', 'e'); }
+        }
         el.textContent='✓ تم الحفظ';
         setTimeout(function(){ el.style.opacity='0'; }, 1200);
         if (db && _nurseryId) {
             db.collection("tenants").doc(_nurseryId).collection("app_data").doc(key).set({
                 data: D[key],
                 updatedAt: new Date().toISOString()
-            }).catch(function(e){ console.error("Firebase Sync Error:", e); });
+            }).catch(function(e){ 
+                console.error("Firebase Sync Error:", e); 
+                toast('⚠️ فشلت المزامنة السحابية، تأكد من الإنترنت وقواعد Firebase', 'e');
+            });
         }
     }
 }
@@ -498,6 +515,7 @@ function saveAll() {
 function getActive(key) { if (!D[key]) return []; return D[key].filter(function(r) { return !r.isDeleted; }); }
 function openCalcPad(input) { if(!input) return; input.setAttribute('inputmode', 'decimal'); input.focus(); }
 function toast(msg,type){var d=document.createElement('div');d.className='toast toast-'+(type||'s');d.textContent=msg;document.getElementById('tst-b').appendChild(d);setTimeout(function(){d.classList.add('out');setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d)},300)},3500)} function agg(items){var h='<div class="agg">';items.forEach(function(i){h+='<div>'+i.icon+' '+i.label+': <span class="v">'+i.val+'</span></div>'});return h+'</div>'} function actBtns(editFn,id,srcKey){if(isViewer()&&!canDelete())return'<td class="action-col"></td>';var h='<td class="action-col"><div style="display:flex;gap:5px">';if(!isViewer())h+='<button class="btn btn-i btn-o" onclick="'+editFn+'('+id+')">✏️</button>';if(canDelete())h+='<button class="btn btn-i" style="background:#FDE8E8;color:var(--dn);border:none" onclick="cfDel(\''+srcKey+'\','+id+')">🗑️</button>';h+='</div></td>';return h} function actBtnsDiv(editFn,id,srcKey){if(isViewer()&&!canDelete())return'';var h='<div class="card-actions" style="display:flex;gap:5px">';if(!isViewer())h+='<button class="btn btn-i btn-o" onclick="'+editFn+'('+id+')">✏️</button>';if(canDelete())h+='<button class="btn btn-i" style="background:#FDE8E8;color:var(--dn);border:none" onclick="cfDel(\''+srcKey+'\','+id+')">🗑️</button>';return h+'</div>'}
+function cfDel(srcKey,id){ if(!canDelete()){toast('⚠️ ليس لديك صلاحية للحذف','e');return;} var item = D[srcKey] ? D[srcKey].find(x => String(x.id) === String(id)) : null; if(!item) return; if(isDateClosed(item.date)){toast('⚠️ الفترة مقفلة','e');return;} var cfBox=document.getElementById('del-cf'); cfBox.querySelector('.cf-title').textContent='تأكيد الحذف'; cfBox.querySelector('.cf-desc').textContent='سيتم نقل العنصر لسلة المحذوفات'; delInfo={src:srcKey,id:id}; document.getElementById('del-y').onclick=function(){ item.isDeleted = true; item.updatedAt = new Date().toISOString(); if(srcKey === 'invoices' || srcKey === 'payments' || srcKey === 'expenses' || srcKey === 'purchaseInvoices') { var ledgerSource = (srcKey === 'purchaseInvoices') ? 'purchase' : (srcKey === 'payments' ? 'payment' : (srcKey === 'expenses' ? 'expense' : 'invoice')); D.ledger.forEach(e => { if(e.source === ledgerSource && String(e.sourceId) === String(id)) { e.isDeleted = true; e.updatedAt = new Date().toISOString(); } }); saveD('ledger'); } saveD(srcKey); addAuditLog('حذف بيانات (ناعم)', 'حذف من '+srcKey); render(); cfBox.classList.remove('open'); toast('تم الحذف بنجاح','s'); }; cfBox.classList.add('open'); }
 function cfDel(srcKey,id){ if(!canDelete()){toast('⚠️ ليس لديك صلاحية للحذف','e');return;} var item = D[srcKey] ? D[srcKey].find(x => String(x.id) === String(id)) : null; if(!item) return; if(isDateClosed(item.date)){toast('⚠️ الفترة مقفلة','e');return;} var cfBox=document.getElementById('del-cf'); cfBox.querySelector('.cf-title').textContent='تأكيد الحذف'; cfBox.querySelector('.cf-desc').textContent='سيتم نقل العنصر لسلة المحذوفات'; delInfo={src:srcKey,id:id}; document.getElementById('del-y').onclick=function(){ item.isDeleted = true; item.updatedAt = new Date().toISOString(); if(srcKey === 'invoices' || srcKey === 'payments' || srcKey === 'expenses' || srcKey === 'purchaseInvoices') { var ledgerSource = (srcKey === 'purchaseInvoices') ? 'purchase' : (srcKey === 'payments' ? 'payment' : (srcKey === 'expenses' ? 'expense' : 'invoice')); D.ledger.forEach(e => { if(e.source === ledgerSource && String(e.sourceId) === String(id)) { e.isDeleted = true; e.updatedAt = new Date().toISOString(); } }); saveD('ledger'); } saveD(srcKey); addAuditLog('حذف بيانات (ناعم)', 'حذف من '+srcKey); render(); cfBox.classList.remove('open'); toast('تم الحذف بنجاح','s'); }; cfBox.classList.add('open'); }
 function debounceSearch(val) { clearTimeout(_searchTimer); _searchTimer = setTimeout(function() { _searchQuery = val.toLowerCase(); _currentPage = 1; render(); }, 500); }
 function toggleQuickNav(){document.getElementById('quick-nav').classList.toggle('open')} function buildQuickNav(){var h='<div id="quick-nav-sheet"><div class="handle-bar" style="margin-bottom:15px"></div><div class="qnav-grid">';var allowed=getAllowedScreens();SHEETS.forEach(function(s){if(allowed.includes(s.key)){h+='<div class="qnav-item" onclick="go(\''+s.key+'\');toggleQuickNav()"><div>'+s.icon+'</div><div>'+s.name+'</div></div>'}});h+='</div><button style="margin-top:20px;width:100%" class="btn btn-o" onclick="toggleQuickNav()">إغلاق</button></div>';document.getElementById('quick-nav').innerHTML=h} 
