@@ -1033,7 +1033,139 @@ function rSummary(){ var fInv = getActive('invoices').filter(i => (_currentBranc
         } 
     }); var dashFilter = localStorage.getItem('nr_dash_item_filter') || 'all'; var hasCrops = false; for(var k in crops){ if(dashFilter !== 'all' && k !== dashFilter) continue; hasCrops = true; var c = crops[k]; var avail = c.fulfilled - c.sold - c.reserved; var avColor = avail < 0 ? 'var(--dn)' : 'var(--gn)'; h += '<div class="inv-mini-card" style="text-align:right;padding:12px;"><div style="font-weight:800;margin-bottom:8px;border-bottom:1px dashed var(--bd);padding-bottom:5px">'+H(k)+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;margin-bottom:8px;"><div>🌱 المزروع: <b class="num-highlight">'+fm(c.planted)+'</b></div><div>✅ المنجز: <b class="num-highlight">'+fm(c.fulfilled)+'</b></div><div>🛒 المباع: <b class="num-highlight">'+fm(c.sold)+'</b></div><div>⏳ المحجوز: <b class="num-highlight">'+fm(c.reserved)+'</b></div></div><div style="background:var(--gnl);padding:6px;border-radius:8px;text-align:center;font-size:12px;font-weight:800;color:'+avColor+';">المتوفر للبيع: '+fm(Math.max(0, avail))+ '</div></div>'; } if(!hasCrops) h += '<div class="empty" style="grid-column:1/-1">لا توجد أصناف مزروعة بعد</div>'; h += '</div></div>'; return h; }
 function initDashboardCharts(){ fetchWeather(); if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); var datalabelsConfig = { color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center', formatter: function(value, context) { return value > 0 ? fm(value) : ''; } }; var salesCtx = document.getElementById('dash-sales-chart'); if(salesCtx && typeof Chart !== 'undefined'){ if(window.dashSalesChart) window.dashSalesChart.destroy(); var monthsMap = {}; getActive('invoices').forEach(inv => { if(!inv.date) return; var m = String(inv.date).substr(0,7); monthsMap[m] = monthsMap[m] || {sales: 0, expenses: 0, purchases: 0}; monthsMap[m].sales += (inv.totalBase || inv.total || 0); }); getActive('expenses').forEach(exp => { if(!exp.date) return; var m = String(exp.date).substr(0,7); monthsMap[m] = monthsMap[m] || {sales: 0, expenses: 0, purchases: 0}; monthsMap[m].expenses += (exp.amount || 0); }); getActive('purchaseInvoices').forEach(pur => { if(!pur.date) return; var m = String(pur.date).substr(0,7); monthsMap[m] = monthsMap[m] || {sales: 0, expenses: 0, purchases: 0}; monthsMap[m].purchases += Number(pur.total || 0); }); var sortedMonths = Object.keys(monthsMap).sort(); var last6Months = sortedMonths.slice(-6); var salesData = last6Months.map(m => monthsMap[m].sales); var expData = last6Months.map(m => monthsMap[m].expenses); var purData = last6Months.map(m => monthsMap[m].purchases); window.dashSalesChart = new Chart(salesCtx, { type: 'bar', data: { labels: last6Months, datasets: [ { label: 'المبيعات', data: salesData, backgroundColor: 'rgba(45, 107, 69, 0.7)', borderRadius: 6 }, { label: 'المصروفات', data: expData, backgroundColor: 'rgba(184, 50, 38, 0.5)', borderRadius: 6 }, { label: 'المشتريات', data: purData, backgroundColor: 'rgba(21, 108, 192, 0.5)', borderRadius: 6 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, datalabels: datalabelsConfig }, scales: { y: { beginAtZero: true } } } }); } var cropsCtx = document.getElementById('dash-crops-chart'); if(cropsCtx && typeof Chart !== 'undefined'){ if(window.dashCropsChart) window.dashCropsChart.destroy(); var cropMap = {}; getActive('invoices').forEach(inv => { var cropName = inv.crop || 'عام'; if(inv.type === 'pos' && inv.posItems) { inv.posItems.forEach(pi => { cropMap[pi.name] = (cropMap[pi.name] || 0) + (pi.total || 0); }); } else { cropMap[cropName] = (cropMap[cropName] || 0) + (inv.totalBase || inv.total || 0); } }); var cropArr = Object.keys(cropMap).map(k => ({name: k, val: cropMap[k]})).sort((a,b) => b.val - a.val); var top5 = cropArr.slice(0, 5); var dynamicColors = ['#2D6B45', '#C45D3E', '#1565C0', '#E65100', '#6A1B9A']; window.dashCropsChart = new Chart(cropsCtx, { type: 'doughnut', data: { labels: top5.map(c => c.name), datasets: [{ data: top5.map(c => c.val), backgroundColor: dynamicColors, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } }, datalabels: datalabelsConfig } } }); } var prodMonthCtx = document.getElementById('dash-prod-month-chart'); if(prodMonthCtx && typeof Chart !== 'undefined'){ if(window.dashProdMonthChart) window.dashProdMonthChart.destroy(); var prodMonthMap = {}; getActive('production').forEach(p => { if(!p.transferDate) return; var m = String(p.transferDate).substr(0,7); prodMonthMap[m] = (prodMonthMap[m] || 0) + Number(p.qty || 0); }); var sortedProdMonths = Object.keys(prodMonthMap).sort(); var last6ProdMonths = sortedProdMonths.slice(-6); var prodData = last6ProdMonths.map(m => prodMonthMap[m]); window.dashProdMonthChart = new Chart(prodMonthCtx, { type: 'line', data: { labels: last6ProdMonths, datasets: [{ label: 'الإنتاج', data: prodData, borderColor: '#2D6B45', backgroundColor: 'rgba(45, 107, 69, 0.2)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, datalabels: datalabelsConfig }, scales: { y: { beginAtZero: true } } } }); } var prodItemCtx = document.getElementById('dash-prod-item-chart'); if(prodItemCtx && typeof Chart !== 'undefined'){ if(window.dashProdItemChart) window.dashProdItemChart.destroy(); var prodItemMap = {}; getActive('production').forEach(p => { prodItemMap[p.crop] = (prodItemMap[p.crop] || 0) + Number(p.qty || 0); }); var prodArr = Object.keys(prodItemMap).map(k => ({name: k, val: prodItemMap[k]})).sort((a,b) => b.val - a.val); var top5Prod = prodArr.slice(0, 5); var prodColors = ['#1565C0', '#C45D3E', '#2D6B45', '#E65100', '#6A1B9A']; window.dashProdItemChart = new Chart(prodItemCtx, { type: 'polarArea', data: { labels: top5Prod.map(c => c.name), datasets: [{ data: top5Prod.map(c => c.val), backgroundColor: prodColors, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } }, datalabels: datalabelsConfig } } }); } var expCtx = document.getElementById('dash-expenses-chart'); if(expCtx && typeof Chart !== 'undefined'){ if(window.dashExpChart) window.dashExpChart.destroy(); var expMap = {}; getActive('expenses').forEach(e => { var cat = e.category || 'أخرى'; expMap[cat] = (expMap[cat] || 0) + Number(e.amount || 0); }); var expArr = Object.keys(expMap).map(k => ({cat: k, val: expMap[k]})).sort((a,b) => b.val - a.val).slice(0, 6); var expColors = ['#C45D3E', '#E65100', '#B83226', '#FF7043', '#D84315', '#FF8A65']; window.dashExpChart = new Chart(expCtx, { type: 'pie', data: { labels: expArr.map(e => e.cat), datasets: [{ data: expArr.map(e => e.val), backgroundColor: expColors, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } }, datalabels: datalabelsConfig } } }); } }
-function rAlerts() { var fOps = (_currentBranch !== 'all') ? getActive('operation').filter(op => op.branch === _currentBranch) : getActive('operation'); var fOrds = (_currentBranch !== 'all') ? getActive('orders').filter(o => o.branch === _currentBranch) : getActive('orders'); var fInv = (_currentBranch !== 'all') ? getActive('invoices').filter(i => i.branch === _currentBranch) : getActive('invoices'); var fDel = (_currentBranch !== 'all') ? getActive('delivered').filter(d => d.branch === _currentBranch) : getActive('delivered'); var h ='<div class="toolbar no-print" style="margin-bottom:15px"><select onchange="_alertView=this.value;render()" style="padding:9px 14px;border:2px solid var(--bd);border-radius:9px;font-size:13px;background:var(--card);font-weight:800;cursor:pointer;width:100%;max-width:300px">'+ '<option value="nursery"'+(_alertView==='nursery'?' selected':'')+'>🌱 تنبيهات المشتل</option>'+ '<option value="orders"'+(_alertView==='orders'?' selected':'')+'>📋 تنبيهات الطلبيات</option>'+ '<option value="financial"'+(_alertView==='financial'?' selected':'')+'>💰 تنبيهات مالية</option>'+ '<option value="import_errors"'+(_alertView==='import_errors'?' selected':'')+'>⚠️ أخطاء الاستيراد</option></select></div>'; if(_alertView === 'nursery') { h += '<div class="card"><h4>🌱 تنبيهات مراحل الإنتاج (ديناميكي)</h4><div class="tbl-wrap"><table><thead><tr><th>الصنف</th><th>العمر (يوم)</th><th>المرحلة المتوقعة</th><th>إجراء مطلوب</th></tr></thead><tbody>'; var hasAlert = false; var today = new Date(); fOps.forEach(op => { if(op.status === 'transferred') return; var ageDays = Math.floor((today - new Date(op.date)) / (1000 * 60 * 60 * 24)); var expectedStage = '', action = '', badge = ''; if(ageDays <= 3) { expectedStage = 'بذرة تحضين'; action = 'مراقبة الحرارة والرطوبة'; badge = 'bdg-b'; } else if(ageDays <= 10) { expectedStage = 'إنبات'; action = 'مراقبة نمو الجذور'; badge = 'bdg-g'; } else if(ageDays <= 21) { expectedStage = 'ضهور الأوراق (ترقيع/تشبيع)'; action = 'بدء الترقيع والتشبيع'; badge = 'bdg-y'; } else if(ageDays <= 30) { expectedStage = 'مرحلة التقسية'; action = 'تقليل الري وتعريض للشمس'; badge = 'bdg-ac'; } else if(ageDays <= 40) { expectedStage = 'جاهز للبيع'; action = 'تهيئة للبيع والتسليم'; badge = 'bdg-g'; } else { expectedStage = 'تجاوز وقت البيع'; action = '⚠️ إجراء عاجل: بيع أو ترحيل فوراً'; badge = 'bdg-r'; } hasAlert = true; h += '<tr><td><b>'+H(op.crop)+'</b></td><td class="num-highlight">'+ageDays+'</td><td><span class="bdg '+badge+'">'+expectedStage+'</span></td><td>'+action+'</td></tr>'; }); if(!hasAlert) h += '<tr><td colspan="4"><div class="empty">✅ لا توجد تنبيهات زراعية حالياً</div></td></tr>'; h += '</tbody></table></div></div>'; } else if(_alertView === 'orders') { h += '<div class="card"><h4>📋 تنبيهات الطلبيات</h4>'; var cropReservations = {}; fOrds.filter(o => o.status === 'pending').forEach(o => { if(!cropReservations[o.crop]) cropReservations[o.crop] = 0; var remaining = Number(o.requested || 0) - Number(o.deliveredQty || 0); if(remaining > 0) cropReservations[o.crop] += remaining; }); var hasOverbooking = false; var overbookingHtml = ''; for(var crop in cropReservations) { var reservedTotal = cropReservations[crop]; var fulfilledTotal = fOps.filter(op => op.crop === crop).reduce((s, op) => s + Number(op.fulfilled || 0), 0); var soldTotal = fDel.filter(d => d.crop === crop).reduce((s, d) => s + Number(d.qty || 0), 0); var currentAvailable = fulfilledTotal - soldTotal - reservedTotal; var pendingMatured = 0; var today = new Date(); fOps.filter(op => op.crop === crop && op.status === 'pending').forEach(op => { var ageDays = Math.floor((today - new Date(op.date)) / (1000 * 60 * 60 * 24)); if(ageDays <= 40) { pendingMatured += Number(op.planted || 0); } }); pendingMatured = pendingMatured * 0.90; var expectedSupply = currentAvailable + pendingMatured; if (reservedTotal > expectedSupply) { hasOverbooking = true; var shortage = reservedTotal - expectedSupply; overbookingHtml += '<div class="card" style="background:#FFF3E0;border-right:4px solid var(--ac);margin-bottom:8px;padding:12px">'; overbookingHtml += '<div style="display:flex;justify-content:space-between"><b style="color:var(--ac)">⚠️ حجز زائد عن الطاقة الإنتاجية</b><span style="font-size:10px;color:var(--mt)">النقص: '+fm(shortage)+'</span></div>'; overbookingHtml += '<div style="font-size:12px;margin-top:5px;line-height:1.8">إجمالي الطلبيات المعلقة لصنف <b>'+H(crop)+'</b> هي <b>'+fm(reservedTotal)+'</b><br>المتوفر حالياً (بعد خصم المباع والمحجوز): <b>'+fm(currentAvailable)+'</b><br>المتوقع قريباً (قيد الإنتاج وأقل من 40 يوماً مع خصم 10% فاقد): <b>'+fm(pendingMatured)+'</b><br>إجمالي العرض المتوقع: <b>'+fm(expectedSupply)+'</b></div></div>'; } } if(hasOverbooking) h += overbookingHtml; h += '<div class="tbl-wrap"><table><thead><tr><th>العميل</th><th>الصنف</th><th>نوع الحجز</th><th>تاريخ الاستحقاق</th><th>حالة التنبيه</th></tr></thead><tbody>'; var hasAlert = false; var today = new Date(); today.setHours(0,0,0,0); fOrds.forEach(o => { if(o.status === 'delivered' || o.status === 'cancelled') return; if(!o.dueDate) return; var dueDateObj = new Date(o.dueDate); dueDateObj.setHours(0,0,0,0); var diffDays = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24)); var alertText = '', badge = ''; if(diffDays < -10) { alertText = '❌ متأخر بـ '+Math.abs(diffDays)+' يوم'; badge = 'bdg-r'; hasAlert = true; } else if(diffDays < 0) { alertText = '⏳ تأخر بسيط ('+Math.abs(diffDays)+' يوم)'; badge = 'bdg-r'; hasAlert = true; } else if(diffDays <= 3) { alertText = '⏳ يستحق خلال '+diffDays+' يوم'; badge = 'bdg-y'; hasAlert = true; } else { return; } var reserveType = o.reservationType ? '<span class="bdg bdg-b">'+H(o.reservationType)+'</span>' : '<span class="bdg bdg-b">عادي</span>'; h += '<tr><td>'+H(o.customer)+'</td><td>'+H(o.crop)+'</td><td>'+reserveType+'</td><td><b>'+H(o.dueDate)+'</b></td><td><span class="bdg '+badge+'">'+alertText+'</span></td></tr>'; }); if(!hasAlert && !hasOverbooking) h += '<tr><td colspan="5"><div class="empty">✅ لا توجد تنبيهات طلبيات حالياً</div></td></tr>'; h += '</tbody></table></div></div>'; } else if(_alertView === 'financial') { h += '<div class="card"><h4>💰 تنبيهات مالية</h4><div class="tbl-wrap"><table><thead><tr><th>النوع</th><th>التفاصيل</th></tr></thead><tbody>'; var hasAlert = false; fInv.filter(i => i.status !== 'paid').forEach(i => { hasAlert = true; h += '<tr><td><span class="bdg bdg-y">فاتورة غير مسددة</span></td><td>الفاتورة '+H(i.invoiceNo)+' للعميل '+H(i.customer)+' بمبلغ '+fm(i.total)+'</td></tr>'; }); if(!hasAlert) h += '<tr><td colspan="2"><div class="empty">✅ لا توجد تنبيهات مالية</div></td></tr>'; h += '</tbody></table></div></div>'; } else if(_alertView === 'import_errors') { h += '<div class="card"><h4>⚠️ أخطاء استيراد البيانات</h4><div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>المستخدم</th><th>تفاصيل الخطأ</th></tr></thead><tbody>'; var hasErr = false; getActive('auditLog').filter(function(a){ return a.action === 'خطأ في استيراد فاتورة'; }).forEach(function(a) { hasErr = true; h += '<tr><td style="font-size:10px;">'+new Date(a.date).toLocaleString('ar-EG')+'</td><td>'+H(a.user)+'</td><td style="color:var(--dn);font-weight:700">'+H(a.details)+'</td></tr>'; }); if(!hasErr) h += '<tr><td colspan="3"><div class="empty">✅ لا توجد أخطاء استيراد. كل البيانات متطابقة.</div></td></tr>'; h += '</tbody></table></div></div>'; } return h; }
+function rAlerts() { 
+    var isSmartAlertsOn = localStorage.getItem('feat_smart_alerts') !== '0';
+    var isDynStagesOn = localStorage.getItem('feat_dyn_stages') !== '0';
+    var sReady = parseInt(localStorage.getItem('nr_stage_ready')||'40');
+
+    var fOps = (_currentBranch !== 'all') ? getActive('operation').filter(op => op.branch === _currentBranch) : getActive('operation');
+    var fOrds = (_currentBranch !== 'all') ? getActive('orders').filter(o => o.branch === _currentBranch) : getActive('orders');
+    var fInv = (_currentBranch !== 'all') ? getActive('invoices').filter(i => i.branch === _currentBranch) : getActive('invoices');
+    var fDel = (_currentBranch !== 'all') ? getActive('delivered').filter(d => d.branch === _currentBranch) : getActive('delivered');
+    
+    var h ='<div class="toolbar no-print" style="margin-bottom:15px"><select onchange="_alertView=this.value;render()" style="padding:9px 14px;border:2px solid var(--bd);border-radius:9px;font-size:13px;background:var(--card);font-weight:800;cursor:pointer;width:100%;max-width:300px">'+ 
+    '<option value="nursery"'+(_alertView==='nursery'?' selected':'')+'>🌱 تنبيهات '+getTerm('المشتل')+'</option>'+ 
+    '<option value="orders"'+(_alertView==='orders'?' selected':'')+'>📋 تنبيهات الطلبيات</option>'+ 
+    '<option value="financial"'+(_alertView==='financial'?' selected':'')+'>💰 تنبيهات مالية</option>'+ 
+    '<option value="import_errors"'+(_alertView==='import_errors'?' selected':'')+'>⚠️ أخطاء الاستيراد</option></select></div>'; 
+    
+    if(_alertView === 'nursery') { 
+        h += '<div class="card"><h4>🌱 تنبيهات مراحل '+getTerm('الإنتاج')+' '+(isDynStagesOn ? '(ديناميكي)' : '')+'</h4>'; 
+        
+        if(!isDynStagesOn) {
+            h += '<div class="empty">⚠️ المراحل الديناميكية معطلة من لوحة تحكم المالك. يرجى تفعيلها لرؤية التنبيهات.</div></div>';
+            return h; 
+        }
+        
+        h += '<div class="tbl-wrap"><table><thead><tr><th>'+getTerm('الصنف')+'</th><th>العمر (يوم)</th><th>المرحلة المتوقعة</th><th>إجراء مطلوب</th></tr></thead><tbody>'; 
+        var hasAlert = false; var today = new Date(); 
+        
+        var sSeed = parseInt(localStorage.getItem('nr_stage_seeding')||'3');
+        var sGerm = parseInt(localStorage.getItem('nr_stage_germination')||'10');
+        var sLeaves = parseInt(localStorage.getItem('nr_stage_leaves')||'21');
+        var sHard = parseInt(localStorage.getItem('nr_stage_hardening')||'30');
+
+        fOps.forEach(op => { 
+            if(op.status === 'transferred') return; 
+            var ageDays = Math.floor((today - new Date(op.date)) / (1000 * 60 * 60 * 24)); 
+            var expectedStage = '', action = '', badge = ''; 
+            
+            if(ageDays <= sSeed) { expectedStage = 'تحضين'; action = 'مراقبة الحرارة والرطوبة'; badge = 'bdg-b'; } 
+            else if(ageDays <= sGerm) { expectedStage = 'إنبات'; action = 'مراقبة النمو'; badge = 'bdg-g'; } 
+            else if(ageDays <= sLeaves) { expectedStage = 'ضهور الأوراق'; action = 'بدء الترقيع'; badge = 'bdg-y'; } 
+            else if(ageDays <= sHard) { expectedStage = 'مرحلة التقسية'; action = 'تقليل الري'; badge = 'bdg-ac'; } 
+            else if(ageDays <= sReady) { expectedStage = 'جاهز للبيع'; action = 'تهيئة للبيع والتسليم'; badge = 'bdg-g'; } 
+            else { expectedStage = 'تجاوز وقت البيع'; action = '⚠️ إجراء عاجل: بيع أو ترحيل فوراً'; badge = 'bdg-r'; } 
+            
+            hasAlert = true; 
+            h += '<tr><td><b>'+H(op.crop)+'</b></td><td class="num-highlight">'+ageDays+'</td><td><span class="bdg '+badge+'">'+expectedStage+'</span></td><td>'+action+'</td></tr>'; 
+        }); 
+        
+        if(!hasAlert) h += '<tr><td colspan="4"><div class="empty">✅ لا توجد تنبيهات '+getTerm('زراعية')+' حالياً</div></td></tr>'; 
+        h += '</tbody></table></div></div>'; 
+    } 
+    else if(_alertView === 'orders') { 
+        h += '<div class="card"><h4>📋 تنبيهات الطلبيات</h4>'; 
+        
+        if(isSmartAlertsOn) {
+            var cropReservations = {}; 
+            fOrds.filter(o => o.status === 'pending').forEach(o => { 
+                if(!cropReservations[o.crop]) cropReservations[o.crop] = 0; 
+                var remaining = Number(o.requested || 0) - Number(o.deliveredQty || 0); 
+                if(remaining > 0) cropReservations[o.crop] += remaining; 
+            }); 
+            
+            var hasOverbooking = false; 
+            var overbookingHtml = ''; 
+            for(var crop in cropReservations) { 
+                var reservedTotal = cropReservations[crop]; 
+                var fulfilledTotal = fOps.filter(op => op.crop === crop).reduce((s, op) => s + Number(op.fulfilled || 0), 0); 
+                var soldTotal = fDel.filter(d => d.crop === crop).reduce((s, d) => s + Number(d.qty || 0), 0); 
+                var currentAvailable = fulfilledTotal - soldTotal - reservedTotal; 
+                
+                var pendingMatured = 0;
+                var today = new Date();
+                fOps.filter(op => op.crop === crop && op.status === 'pending').forEach(op => {
+                    var ageDays = Math.floor((today - new Date(op.date)) / (1000 * 60 * 60 * 24)); 
+                    if(ageDays <= sReady) { 
+                        pendingMatured += Number(op.planted || 0); 
+                    }
+                });
+                pendingMatured = pendingMatured * 0.90; // خصم 10% فاقد
+                var expectedSupply = currentAvailable + pendingMatured;
+                
+                if (reservedTotal > expectedSupply) { 
+                    hasOverbooking = true; 
+                    var shortage = reservedTotal - expectedSupply; 
+                    overbookingHtml += '<div class="card" style="background:#FFF3E0;border-right:4px solid var(--ac);margin-bottom:8px;padding:12px">'; 
+                    overbookingHtml += '<div style="display:flex;justify-content:space-between"><b style="color:var(--ac)">⚠️ حجز زائد عن الطاقة الإنتاجية</b><span style="font-size:10px;color:var(--mt)">النقص: '+fm(shortage)+'</span></div>'; 
+                    overbookingHtml += '<div style="font-size:12px;margin-top:5px;line-height:1.8">إجمالي الطلبيات المعلقة لصنف <b>'+H(crop)+'</b> هي <b>'+fm(reservedTotal)+'</b><br>المتوفر حالياً (بعد خصم المباع والمحجوز): <b>'+fm(currentAvailable)+'</b><br>المتوقع قريباً (قيد الإنتاج وأقل من '+sReady+' يوماً مع خصم 10% فاقد): <b>'+fm(pendingMatured)+'</b><br>إجمالي العرض المتوقع: <b>'+fm(expectedSupply)+'</b></div></div>'; 
+                } 
+            } 
+            if(hasOverbooking) h += overbookingHtml; 
+        }
+        
+        h += '<div class="tbl-wrap"><table><thead><tr><th>العميل</th><th>'+getTerm('الصنف')+'</th><th>نوع الحجز</th><th>تاريخ الاستحقاق</th><th>حالة التنبيه</th></tr></thead><tbody>'; 
+        var hasAlert = false; 
+        var today = new Date(); today.setHours(0,0,0,0); 
+        fOrds.forEach(o => { 
+            if(o.status === 'delivered' || o.status === 'cancelled') return; 
+            if(!o.dueDate) return; 
+            var dueDateObj = new Date(o.dueDate); dueDateObj.setHours(0,0,0,0); 
+            var diffDays = Math.ceil((dueDateObj - today) / (1000 * 60 * 60 * 24)); 
+            var alertText = '', badge = ''; 
+            if(diffDays < -10) { alertText = '❌ متأخر بـ '+Math.abs(diffDays)+' يوم'; badge = 'bdg-r'; hasAlert = true; } 
+            else if(diffDays < 0) { alertText = '⏳ تأخر بسيط ('+Math.abs(diffDays)+' يوم)'; badge = 'bdg-r'; hasAlert = true; } 
+            else if(diffDays <= 3) { alertText = '⏳ يستحق خلال '+diffDays+' يوم'; badge = 'bdg-y'; hasAlert = true; } 
+            else { return; } 
+            var reserveType = o.reservationType ? '<span class="bdg bdg-b">'+H(o.reservationType)+'</span>' : '<span class="bdg bdg-b">عادي</span>'; 
+            h += '<tr><td>'+H(o.customer)+'</td><td>'+H(o.crop)+'</td><td>'+reserveType+'</td><td><b>'+H(o.dueDate)+'</b></td><td><span class="bdg '+badge+'">'+alertText+'</span></td></tr>'; 
+        }); 
+        if(!hasAlert && !hasOverbooking) h += '<tr><td colspan="5"><div class="empty">✅ لا توجد تنبيهات طلبيات حالياً</div></td></tr>'; 
+        h += '</tbody></table></div></div>'; 
+    } 
+    else if(_alertView === 'financial') { 
+        h += '<div class="card"><h4>💰 تنبيهات مالية</h4><div class="tbl-wrap"><table><thead><tr><th>النوع</th><th>التفاصيل</th></tr></thead><tbody>'; 
+        var hasAlert = false; 
+        fInv.filter(i => i.status !== 'paid').forEach(i => { 
+            hasAlert = true; 
+            h += '<tr><td><span class="bdg bdg-y">فاتورة غير مسددة</span></td><td>الفاتورة '+H(i.invoiceNo)+' للعميل '+H(i.customer)+' بمبلغ '+fm(i.total)+'</td></tr>'; 
+        }); 
+        if(!hasAlert) h += '<tr><td colspan="2"><div class="empty">✅ لا توجد تنبيهات مالية</div></td></tr>'; 
+        h += '</tbody></table></div></div>'; 
+    } 
+    else if(_alertView === 'import_errors') { 
+        h += '<div class="card"><h4>⚠️ أخطاء استيراد البيانات</h4><div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>المستخدم</th><th>تفاصيل الخطأ</th></tr></thead><tbody>'; 
+        var hasErr = false; 
+        getActive('auditLog').filter(function(a){ return a.action === 'خطأ في استيراد فاتورة'; }).forEach(function(a) { 
+            hasErr = true; 
+            h += '<tr><td style="font-size:10px;">'+new Date(a.date).toLocaleString('ar-EG')+'</td><td>'+H(a.user)+'</td><td style="color:var(--dn);font-weight:700">'+H(a.details)+'</td></tr>'; 
+        }); 
+        if(!hasErr) h += '<tr><td colspan="3"><div class="empty">✅ لا توجد أخطاء استيراد. كل البيانات متطابقة.</div></td></tr>'; 
+        h += '</tbody></table></div></div>'; 
+    } 
+    return h; 
+}
 function parseBomArr(bomStr) { if(!bomStr) return []; return bomStr.split(',').map(p => { var parts = p.split(':'); return { item: parts[0].trim(), qty: Number(parts[1]||0) }; }).filter(b => b.item); }
 function parseBom(bomStr) { var arr = parseBomArr(bomStr); if(arr.length === 0) return '-'; var h = '<div style="font-size:10px;color:var(--fg2)">'; arr.forEach(b => { h += '<div>'+H(b.item)+': '+b.qty+'</div>'; }); return h + '</div>'; }
 function renderBomPreview(crop, qty) { var cropItem = D.items.find(i => i.name === crop); if(!cropItem || !cropItem.bom || !qty) return '<div style="font-size:10px;color:var(--mt)">اختر المحصول وأدخل الكمية المنجزة</div>'; var arr = parseBomArr(cropItem.bom); var h = '<div style="background:var(--gnl);padding:8px;border-radius:8px;font-size:11px"><b>المواد المستهلكة:</b><br>'; arr.forEach(b => { h += '• '+H(b.item)+': '+(b.qty * Number(qty))+'<br>'; }); return h + '</div>'; }
@@ -1302,7 +1434,97 @@ function editSupplier(id){ var r=D.suppliers.find(x=>x.id===id); if(!r)return; m
 handlers['supplier-edit']=function(o){ var r=D.suppliers.find(x=>x.id===mId); if(!r)return false; r.name=o.name; r.phone=o.phone; saveD('suppliers'); return true; };
 function rTrash() { var h = getPrintHeaderHtml('سلة المحذوفات') + '<div class="tbl-wrap"><table><thead><tr><th>النوع</th><th>البيان</th><th>تاريخ الحذف</th><th>إجراء</th></tr></thead><tbody>'; var hasDeleted = false; DATA_KEYS.forEach(function(key) { D[key].forEach(function(item) { if(item && item.isDeleted) { hasDeleted = true; var entityName = item.name || item.customer || item.crop || item.supplier || item.employee || item.description || item.invoiceNo || (key + ' #' + item.id); var delDate = new Date(item.updatedAt).toLocaleString('ar-EG'); h += '<tr style="opacity:0.6"><td><span class="bdg bdg-r">'+H(key)+'</span></td><td>'+H(entityName)+'</td><td class="num-highlight">'+H(delDate)+'</td><td><button class="btn btn-g btn-i" onclick="restoreItem(\''+key+'\','+item.id+')">♻️ استعادة</button></td></tr>'; } }); }); if(!hasDeleted) h += '<tr><td colspan="4"><div class="empty">🗑️ سلة المحذوفات فارغة</div></td></tr>'; h += '</tbody></table></div>'; return h; }
 function restoreItem(key, id) { var item = D[key].find(function(x){ return String(x.id) === String(id); }); if(item) { item.isDeleted = false; item.updatedAt = new Date().toISOString(); saveD(key); render(); toast('✅ تمت استعادة العنصر بنجاح', 's'); } }
-function rSuperadmin() { var h = '<div style="margin-bottom:15px"><h3 style="color:var(--gnd);margin:0">👑 لوحة تحكم مالك النظام</h3><span style="font-size:11px;color:var(--mt)">منصة إدارة مشتلات ELEN SOFT</span></div>'; h += '<div class="kpi-grid">'; h += '<div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">👥</div><div><div class="kpi-val val-green">'+getActive('users').length+'</div><div class="kpi-lbl">إجمالي المستخدمين</div></div></div>'; h += '<div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">🚫</div><div><div class="kpi-val val-red">'+D.users.filter(function(u){ return u.isBlocked; }).length+'</div><div class="kpi-lbl">حسابات محظورة</div></div></div>'; h += '<div class="kpi-card"><div class="kpi-icon" style="background:#FFF8E1;color:#E65100">🏢</div><div><div class="kpi-val" style="color:#E65100">1</div><div class="kpi-lbl">مشتلات مسجلة (حالياً)</div></div></div>'; h += '</div>'; h += '<div class="card"><h4 style="margin-bottom:12px;color:var(--gnd)">👥 إدارة حسابات النظام</h4><div class="tbl-wrap"><table><thead><tr><th>اسم المستخدم</th><th>الصلاحية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>'; if(!D.users || D.users.length === 0) { h += '<tr><td colspan="4"><div class="empty">لا يوجد مستخدمون مسجلون بعد</div></td></tr>'; } else { D.users.forEach(function(u) { var isOwner = (u.username === 'مالك النظام'); var status = u.isBlocked ? '<span class="bdg bdg-r">محظور</span>' : '<span class="bdg bdg-g">نشط</span>'; var actionBtn = isOwner ? '-' : (u.isBlocked ? '<button class="btn btn-g" onclick="toggleUserBlock('+u.id+')">✅ تفعيل</button>' : '<button class="btn btn-d" onclick="toggleUserBlock('+u.id+')">🚫 حظر</button>'); h += '<tr><td><b>'+H(u.username)+'</b></td><td>'+H(u.role)+'</td><td>'+status+'</td><td>'+actionBtn+'</td></tr>'; }); } h += '</tbody></table></div></div>'; h += '<div class="card" style="border:1px solid var(--ac)"><h4 style="margin-bottom:12px;color:var(--ac)">🌟 التحكم بنقاط القوة (الميزات المدفوعة)</h4>'; h += '<p style="font-size:11px;color:var(--mt);margin-bottom:15px">تحكم في إظهار أو إخفاء الميزات المتقدمة للنظام. الميزات المعطلة لن تظهر في واجهة مدير المشتل.</p>'; var features = [ {key: 'feat_dyn_stages', name: 'المراحل الديناميكية للمحصول', desc: 'حساب العمر ومراحل النمو تلقائياً'}, {key: 'feat_bom_waste', name: 'قائمة المكونات والفاقد', desc: 'خصم المواد الخام تلقائياً وحساب التالف'}, {key: 'feat_smart_alerts', name: 'التنبيهات الذكية (نقطة الطلب)', desc: 'تنبيهات الإنتاج والحجز الزائد'}, {key: 'feat_auto_messaging', name: 'الرسائل الآلية (واتساب/نصي)', desc: 'إرسال تأكيدات وتذكيرات الطلبيات'}, {key: 'feat_partial_delivery', name: 'التسليم الجزئي للطلبيات', desc: 'تسليم الطلبيات على دفعات وفواتيرها'}, {key: 'feat_double_entry', name: 'القيود المحاسبية المزدوجة', desc: 'توليد قيود اليومية تلقائياً'}, {key: 'feat_loss_prevent', name: 'منع البيع بخسارة', desc: 'منع إتمام الفاتورة إذا كان سعر البيع أقل من التكلفة'}, {key: 'feat_show_profits', name: 'إظهار عمود الأرباح', desc: 'إظهار صافي ربح كل فاتورة في شاشة المبيعات (للمالك فقط)'}, {key: 'feat_loyalty', name: 'نظام النقاط والولاء', desc: 'منح نقاط للعملاء وتطبيق خصم تلقائي (فضي/ذهبي)'} ]; features.forEach(function(feat) { var isEnabled = localStorage.getItem(feat.key) !== '0'; var btnClass = isEnabled ? 'btn-d' : 'btn-g'; var btnText = isEnabled ? '🚫 إيقاف الميزة' : '✅ تفعيل الميزة'; var statusBdg = isEnabled ? '<span class="bdg bdg-g">مفعلة</span>' : '<span class="bdg bdg-r">معطلة</span>'; h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px;border:1px solid var(--bd)">'; h += '<div style="flex:1"><b style="font-size:13px">'+feat.name+'</b> '+statusBdg+'<div style="font-size:10px;color:var(--mt);margin-top:3px">'+feat.desc+'</div></div>'; h += '<button class="btn '+btnClass+'" style="flex-shrink:0" onclick="toggleFeature(\''+feat.key+'\')">'+btnText+'</button>'; h += '</div>'; }); h += '</div>'; h += '<div class="card" style="border:1px solid var(--gn)"><h4 style="color:var(--gn);margin-bottom:10px">🔑 إدارة تراخيص المشاتل</h4><p style="font-size:11px;color:var(--mt);margin-bottom:10px">قم بإضافة رمز المشتل هنا لاعتماده والسماح للعميل باستخدامه.</p><div style="display:flex;gap:5px;margin-bottom:10px"><input id="new-tenant-id" placeholder="مثال: 001 أو ALMADINA" style="flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px"><button class="btn btn-g" onclick="addTenantLicense()">➕ اعتماد</button></div><div id="tenant-list" style="font-size:12px;">جاري التحميل...</div></div>'; return h; }
+function rSuperadmin() { 
+    var h = '<div style="margin-bottom:15px"><h3 style="color:var(--gnd);margin:0">👑 لوحة تحكم مالك النظام</h3><span style="font-size:11px;color:var(--mt)">منصة إدارة ELEN SOFT</span></div>'; 
+    
+    // مؤشرات رئيسية
+    h += '<div class="kpi-grid">'; 
+    h += '<div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">👥</div><div><div class="kpi-val val-green">'+getActive('users').length+'</div><div class="kpi-lbl">إجمالي المستخدمين</div></div></div>'; 
+    h += '<div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">🚫</div><div><div class="kpi-val val-red">'+D.users.filter(function(u){ return u.isBlocked; }).length+'</div><div class="kpi-lbl">حسابات محظورة</div></div></div>'; 
+    h += '<div class="kpi-card"><div class="kpi-icon" style="background:#FFF8E1;color:#E65100">🏢</div><div><div class="kpi-val" style="color:#E65100">1</div><div class="kpi-lbl">مؤسسات مسجلة (حالياً)</div></div></div>'; 
+    h += '</div>'; 
+
+    // إدارة المستخدمين
+    h += '<div class="card"><h4 style="margin-bottom:12px;color:var(--gnd)">👥 إدارة حسابات النظام</h4><div class="tbl-wrap"><table><thead><tr><th>اسم المستخدم</th><th>الصلاحية</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>'; 
+    if(!D.users || D.users.length === 0) { h += '<tr><td colspan="4"><div class="empty">لا يوجد مستخدمون مسجلون بعد</div></td></tr>'; } 
+    else { 
+        D.users.forEach(function(u) { 
+            var isOwner = (u.username === 'مالك النظام'); 
+            var status = u.isBlocked ? '<span class="bdg bdg-r">محظور</span>' : '<span class="bdg bdg-g">نشط</span>'; 
+            var actionBtn = isOwner ? '-' : (u.isBlocked ? '<button class="btn btn-g" onclick="toggleUserBlock('+u.id+')">✅ تفعيل</button>' : '<button class="btn btn-d" onclick="toggleUserBlock('+u.id+')">🚫 حظر</button>'); 
+            h += '<tr><td><b>'+H(u.username)+'</b></td><td>'+H(u.role)+'</td><td>'+status+'</td><td>'+actionBtn+'</td></tr>'; 
+        }); 
+    } 
+    h += '</tbody></table></div></div>'; 
+
+    // إعدادات دورة حياة المنتج (مراحل الإنتاج)
+    h += '<div class="card" style="border:1px solid var(--gn)"><h4 style="color:var(--gn);margin-bottom:12px">🌱 إعدادات دورة حياة المنتج (مراحل الإنتاج)</h4>';
+    h += '<p style="font-size:11px;color:var(--mt);margin-bottom:15px">قم بضبط عدد الأيام لكل مرحلة من مراحل نمو المنتج. تُستخدم هذه المدة في شاشة التنبيهات والتشغيل لتحديد المرحلة الحالية للمنتج.</p>';
+    h += '<div class="form-row">';
+    h += '<div class="fg"><label>مرحلة التحضين (أيام)</label><input type="number" id="set-stage-seeding" value="'+(localStorage.getItem('nr_stage_seeding')||'3')+'"></div>';
+    h += '<div class="fg"><label>مرحلة الإنبات (أيام)</label><input type="number" id="set-stage-germination" value="'+(localStorage.getItem('nr_stage_germination')||'10')+'"></div>';
+    h += '</div><div class="form-row">';
+    h += '<div class="fg"><label>مرحلة ظهور الأوراق (أيام)</label><input type="number" id="set-stage-leaves" value="'+(localStorage.getItem('nr_stage_leaves')||'21')+'"></div>';
+    h += '<div class="fg"><label>مرحلة التقسية (أيام)</label><input type="number" id="set-stage-hardening" value="'+(localStorage.getItem('nr_stage_hardening')||'30')+'"></div>';
+    h += '</div><div class="form-row">';
+    h += '<div class="fg"><label>جاهز للبيع/التصنيع (أيام)</label><input type="number" id="set-stage-ready" value="'+(localStorage.getItem('nr_stage_ready')||'40')+'"></div>';
+    h += '</div>';
+    h += '<button class="btn btn-g" style="width:100%;margin-top:10px" onclick="saveSuperadminSettings()">💾 حفظ إعدادات الإنتاج</button>';
+    h += '</div>';
+
+    // التحكم بالميزات الفنية
+    h += '<div class="card" style="border:1px solid var(--ac)"><h4 style="margin-bottom:12px;color:var(--ac)">🌟 التحكم بنقاط القوة (الميزات الفنية)</h4>'; 
+    h += '<p style="font-size:11px;color:var(--mt);margin-bottom:15px">تحكم في إظهار أو إخفاء الميزات المتقدمة للنظام. الميزات المعطلة لن تظهر في واجهة المدير.</p>'; 
+    var features = [ 
+        {key: 'feat_factory_mode', name: 'وضع المصانع (تحويل النظام)', desc: 'تغيير مصطلحات النظام لتناسب المصانع بدلاً من المشاتل'}, 
+        {key: 'feat_dyn_stages', name: 'المراحل الديناميكية للمنتج', desc: 'حساب العمر ومراحل النمو تلقائياً'}, 
+        {key: 'feat_bom_waste', name: 'قائمة المكونات والفاقد (BOM)', desc: 'خصم المواد الخام تلقائياً وحساب التالف'}, 
+        {key: 'feat_smart_alerts', name: 'التنبيهات الذكية (نقطة الطلب)', desc: 'تنبيهات الإنتاج والحجز الزائد'}, 
+        {key: 'feat_auto_messaging', name: 'الرسائل الآلية (واتساب/نصي)', desc: 'إرسال تأكيدات وتذكيرات الطلبيات'}, 
+        {key: 'feat_partial_delivery', name: 'التسليم الجزئي للطلبيات', desc: 'تسليم الطلبيات على دفعات وفواتيرها'}, 
+        {key: 'feat_double_entry', name: 'القيود المحاسبية المزدوجة', desc: 'توليد قيود اليومية تلقائياً'}, 
+        {key: 'feat_loss_prevent', name: 'منع البيع بخسارة', desc: 'منع إتمام الفاتورة إذا كان سعر البيع أقل من التكلفة'}, 
+        {key: 'feat_show_profits', name: 'إظهار عمود الأرباح', desc: 'إظهار صافي ربح كل فاتورة في شاشة المبيعات (للمالك فقط)'}, 
+        {key: 'feat_loyalty', name: 'نظام النقاط والولاء', desc: 'منح نقاط للعملاء وتطبيق خصم تلقائي (فضي/ذهبي)'} 
+    ]; 
+    features.forEach(function(feat) { 
+        var isEnabled = localStorage.getItem(feat.key) !== '0'; 
+        var btnClass = isEnabled ? 'btn-d' : 'btn-g'; 
+        var btnText = isEnabled ? '🚫 إيقاف الميزة' : '✅ تفعيل الميزة'; 
+        var statusBdg = isEnabled ? '<span class="bdg bdg-g">مفعلة</span>' : '<span class="bdg bdg-r">معطلة</span>'; 
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px;border:1px solid var(--bd)">'; 
+        h += '<div style="flex:1"><b style="font-size:13px">'+feat.name+'</b> '+statusBdg+'<div style="font-size:10px;color:var(--mt);margin-top:3px">'+feat.desc+'</div></div>'; 
+        h += '<button class="btn '+btnClass+'" style="flex-shrink:0" onclick="toggleFeature(\''+feat.key+'\')">'+btnText+'</button>'; 
+        h += '</div>'; 
+    }); 
+    h += '</div>'; 
+
+    // إدارة التراخيص
+    h += '<div class="card" style="border:1px solid var(--gn)"><h4 style="color:var(--gn);margin-bottom:10px">🔑 إدارة تراخيص المؤسسات</h4><p style="font-size:11px;color:var(--mt);margin-bottom:10px">قم بإضافة رمز المؤسسة هنا لاعتماده والسماح للعميل باستخدامه.</p><div style="display:flex;gap:5px;margin-bottom:10px"><input id="new-tenant-id" placeholder="مثال: 001 أو ALMADINA" style="flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px"><button class="btn btn-g" onclick="addTenantLicense()">➕ اعتماد</button></div><div id="tenant-list" style="font-size:12px;">جاري التحميل...</div></div>'; 
+    
+    return h; 
+}
+function saveSuperadminSettings() {
+    localStorage.setItem('nr_stage_seeding', document.getElementById('set-stage-seeding').value);
+    localStorage.setItem('nr_stage_germination', document.getElementById('set-stage-germination').value);
+    localStorage.setItem('nr_stage_leaves', document.getElementById('set-stage-leaves').value);
+    localStorage.setItem('nr_stage_hardening', document.getElementById('set-stage-hardening').value);
+    localStorage.setItem('nr_stage_ready', document.getElementById('set-stage-ready').value);
+    toast('✅ تم حفظ إعدادات الإنتاج بنجاح', 's');
+}
+
+// دالة تغيير المصطلحات (وضع المصنع)
+function getTerm(term) {
+    var isFactory = localStorage.getItem('feat_factory_mode') !== '0';
+    if(!isFactory) return term;
+    var terms = {
+        'مشتل': 'مصنع', 'المشتل': 'المصنع', 'مشاتل': 'مصانع', 'المشاتل': 'المصانع',
+        'محصول': 'منتج', 'المحصول': 'المنتج', 'المحاصيل': 'المنتجات',
+        'بذرة': 'مادة خام', 'البذور': 'المواد الخام', 'زراعة': 'تصنيع', 'بذر': 'تشغيل',
+        'شتلة': 'وحدة', 'شتلات': 'وحدات', 'صوبة': 'خط إنتاج', 'الصوبة': 'خط الإنتاج'
+    };
+    return terms[term] || term;
+}
 function toggleFeature(key) { var current = localStorage.getItem(key); var newState = current === '0' ? '1' : '0'; localStorage.setItem(key, newState); toast(newState === '1' ? '✅ تم تفعيل الميزة للنظام' : '🚫 تم إيقاف الميزة', 's'); render(); }
 function toggleUserBlock(id) { var u = D.users.find(function(x){ return x.id === id; }); if(u) { u.isBlocked = !u.isBlocked; saveUsers(D.users); render(); toast(u.isBlocked ? '🚫 تم حظر المستخدم' : '✅ تم تفعيل المستخدم', 's'); } }
 async function loadTenantLicenses() { var listDiv = document.getElementById('tenant-list'); if(!listDiv) return; if(!db) { listDiv.innerHTML = '<div class="empty">غير متصل بالسحابة</div>'; return; } try { var doc = await db.collection("system_control").doc("licenses").get(); var arr = (doc.exists && doc.data().valid_tenants) ? doc.data().valid_tenants : []; if(arr.length === 0) { listDiv.innerHTML = '<div class="empty">لا توجد تراخيص معتمدة بعد</div>'; return; } var html = '<div class="tbl-wrap"><table><thead><tr><th>رمز المشتل المعتمد</th><th>إجراء</th></tr></thead><tbody>'; arr.forEach(function(t) { html += '<tr><td><b>'+H(t)+'</b></td><td><button class="btn btn-d btn-i" onclick="removeTenantLicense(\''+t+'\')">🗑️</button></td></tr>'; }); html += '</tbody></table></div>'; listDiv.innerHTML = html; } catch(e) { listDiv.innerHTML = '<div class="empty">خطأ في تحميل التراخيص</div>'; } }
