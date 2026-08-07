@@ -305,15 +305,69 @@ function getGlobalVisibleScreens() { try { var v = JSON.parse(localStorage.getIt
 function getAllowedScreens() { var role = getMyRole(); var roleScreens = role.screens === 'all' ? SHEETS.map(s => s.key) : (role.screens || []); var globalVisible = getGlobalVisibleScreens(); return roleScreens.filter(s => globalVisible.includes(s)); }
 function getClosedDate(){return localStorage.getItem('nr_closed_date')||''} function setClosedDate(d){localStorage.setItem('nr_closed_date',d)} function isDateClosed(date){if(!date||isViewer())return false;var cd=getClosedDate();return cd&&date<=cd}
 function addAuditLog(action, details) { if(!D.auditLog) D.auditLog = []; D.auditLog.push({ id: uid(), date: new Date().toISOString(), user: currentUser ? currentUser.username : 'نظام', action: action, details: details }); saveD('auditLog'); }
-function getPrintStylesHtml(){ return '<style>body{font-family:Arial,sans-serif;padding:30px;position:relative}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ccc;padding:10px;text-align:right}th{background:#f4f4f4}.header{text-align:center;margin-bottom:30px;border-bottom:2px solid #333;padding-bottom:15px}.total{font-size:1.2em;font-weight:bold;margin-top:20px;text-align:left}.qr-area{text-align:center;margin-top:25px}</style>'; }
-function getPrintWatermarkAndUserHtml(){var sysName = localStorage.getItem('nr_sys_name') || 'نظام مشتل التنمية';var sysLogo = localStorage.getItem('nr_sys_logo') || '';var nurseryName = getNurseryName();var nurseryLogo = localStorage.getItem('nr_logo') || '';var user = currentUser ? currentUser.username : 'نظام';var h = '<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);z-index:0;pointer-events:none;text-align:center;opacity:0.04;width:100%">';if(nurseryLogo) h += '<img src="'+nurseryLogo+'" style="width:120px;margin-bottom:10px"><br>';if(nurseryName) h += '<div style="font-size:32px;font-weight:900;color:#000;white-space:nowrap">'+nurseryName+'</div>';h += '<div style="font-size:16px;margin-top:8px;color:#555;font-weight:700">⚡ '+sysName+'</div>';if(sysLogo) h += '<img src="'+sysLogo+'" style="width:50px;margin-top:5px">';h += '</div><div style="position:fixed;bottom:10px;left:10px;font-size:9px;color:#999;z-index:1">تم الإصدار بواسطة: '+user+'</div>';return h;}
-function getPrintHeaderHtml(title) { 
-    var logo = localStorage.getItem('nr_logo') || ''; 
-    var name = getNurseryName(); 
-    var phone = localStorage.getItem('nr_phone') || ''; 
-    var logoImg = logo ? '<img src="'+logo+'" style="max-width:80px;max-height:80px;border-radius:12px;">' : '<div style="font-size:40px">🌱</div>'; 
-    var watermarkUser = getPrintWatermarkAndUserHtml(); 
-    return watermarkUser + '<div class="print-header no-print-hide" style="text-align:center; margin-bottom:25px; padding-bottom:15px; border-bottom:2px solid #2c3e50; display:none;"><div style="display:flex; justify-content:center; align-items:center; gap:20px;">' + logoImg + '<div><h2 style="margin:0; font-size:26px; color:#2c3e50;">' + H(name) + '</h2>'+(phone?'<span style="font-size:13px; color:#555;">📞 ' + H(phone) + '</span>':'')+ '<h4 style="margin:10px 0 0; color:#34495e; border-top:1px dashed #bdc3c7; padding-top:8px; display:inline-block;">' + H(title) + '</h4></div></div></div>'; 
+function getPrintStylesHtml(){ 
+    return '<style>'+
+    '@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Montserrat:wght@400;600;800&display=swap");'+
+    '@page { size: A4; margin: 15mm 15mm 15mm 20mm; }'+
+    'body { font-family: "Cairo", "Segoe UI", Tahoma, sans-serif; color: #2c3e50; line-height: 1.5; margin:0; padding:0; }'+
+    // الهوية العمودية على اليسار
+    '.left-brand { position: fixed; left: 5mm; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; text-orientation: mixed; font-family: "Montserrat", sans-serif; font-size: 11px; font-weight: 700; color: #162B1E; letter-spacing: 3px; z-index: 9999; border-right: 2px solid #C45D3E; padding-right: 8px; }'+
+    // رأس المستند
+    '.doc-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #162B1E; padding-bottom: 15px; margin-bottom: 20px; }'+
+    '.doc-header .company-info h2 { font-family: "Montserrat", "Cairo", sans-serif; color: #162B1E; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 1px; }'+
+    '.doc-header .company-info p { margin: 3px 0; font-size: 11px; color: #7f8c8d; font-family: "Cairo", sans-serif; }'+
+    '.doc-header .doc-meta { text-align: left; }'+
+    '.doc-header .doc-meta h3 { font-family: "Montserrat", sans-serif; margin: 0 0 5px 0; font-size: 20px; color: #C45D3E; text-transform: uppercase; letter-spacing: 1px; }'+
+    '.doc-header .doc-meta p { font-family: "Cairo", sans-serif; font-size: 12px; margin: 2px 0; color: #34495e; font-weight: 600; }'+
+    // صناديق البيانات
+    '.parties { display: flex; gap: 20px; margin-bottom: 25px; }'+
+    '.party-box { flex: 1; background: #f8f9fa; padding: 12px 15px; border-radius: 8px; border-right: 4px solid #2D6B45; }'+
+    '.party-box h4 { margin: 0 0 5px 0; font-size: 11px; color: #95a5a6; text-transform: uppercase; letter-spacing: 0.5px; font-family: "Montserrat", sans-serif; }'+
+    '.party-box p { margin: 2px 0; font-size: 13px; font-weight: 600; color: #2c3e50; }'+
+    // الجداول
+    'table.doc-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }'+
+    'table.doc-table thead th { background: #162B1E; color: #fff; padding: 10px 12px; text-align: right; font-weight: 600; font-size: 11px; font-family: "Cairo", sans-serif; }'+
+    'table.doc-table tbody td { padding: 9px 12px; border-bottom: 1px solid #ecf0f1; }'+
+    'table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }'+
+    // الإجماليات
+    '.totals-container { display: flex; justify-content: flex-end; margin-top: 25px; }'+
+    '.totals-box { width: 300px; }'+
+    '.totals-box .total-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }'+
+    '.totals-box .total-row.grand { border-top: 2px solid #162B1E; margin-top: 10px; padding-top: 10px; font-size: 18px; font-weight: 800; color: #162B1E; }'+
+    '.tafqeet-box { background: #E8F5EC; padding: 10px 15px; border-radius: 6px; margin-top: 15px; font-size: 12px; font-weight: 700; color: #162B1E; text-align: center; border: 1px dashed #2D6B45; }'+
+    // التوقيعات والفلتر
+    '.signatures { display: flex; justify-content: space-between; margin-top: 60px; }'+
+    '.sig-box { width: 30%; text-align: center; font-size: 12px; font-weight: 600; color: #7f8c8d; }'+
+    '.sig-line { margin-top: 35px; border-top: 1px dashed #bdc3c7; padding-top: 5px; }'+
+    '.qr-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px; border-top: 2px solid #ecf0f1; padding-top: 15px; }'+
+    '.status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }'+
+    '.status-paid { background: #E8F5EC; color: #2D6B45; }'+
+    '.status-unpaid { background: #FDE8E8; color: #B83226; }'+
+    '@media print { .no-print { display: none !important; } }'+
+    '</style>'; 
+}
+function getPrintWatermarkAndUserHtml(){
+    var sysName = localStorage.getItem('nr_sys_name') || 'ELEN SOFT';
+    var sysLogo = localStorage.getItem('nr_sys_logo') || '';
+    var nurseryName = getNurseryName();
+    var nurseryLogo = localStorage.getItem('nr_logo') || '';
+    var user = currentUser ? currentUser.username : 'نظام';
+    var ownerPhone = '967770012528'; // رقم هاتف مالك النظام
+    
+    // الشريط العمودي على الجانب الأيسر
+    var h = '<div class="left-brand">ELEN SOFT | ايلين سوفت | '+ownerPhone+'</div>';
+    
+    // العلامة المائية في المنتصف
+    h += '<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);z-index:0;pointer-events:none;text-align:center;opacity:0.04;width:100%">';
+    if(nurseryLogo) h += '<img src="'+nurseryLogo+'" style="width:120px;margin-bottom:10px"><br>';
+    if(nurseryName) h += '<div style="font-size:32px;font-weight:900;color:#000;white-space:nowrap">'+nurseryName+'</div>';
+    h += '<div style="font-size:16px;margin-top:8px;color:#555;font-weight:700">⚡ '+sysName+'</div>';
+    if(sysLogo) h += '<img src="'+sysLogo+'" style="width:50px;margin-top:5px">';
+    h += '</div>';
+    
+    // تذييل الصفحة
+    h += '<div style="position:fixed;bottom:10px;left:10px;font-size:9px;color:#999;z-index:1">تم الإصدار بواسطة: '+user+'</div>';
+    return h;
 }
 function applyLogo(){ var logo = localStorage.getItem('nr_logo') || ''; var els = document.querySelectorAll('#main-logo, #login-logo'); els.forEach(function(el){ if(logo){ el.innerHTML = ''; el.style.backgroundImage = 'url('+logo+')'; el.style.backgroundSize = 'contain'; el.style.backgroundRepeat = 'no-repeat'; el.style.backgroundPosition = 'center'; } else { el.style.backgroundImage = 'none'; } }); }
 function handleLogoUpload(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var maxW=200,maxH=200;var w=img.width,h=img.height;if(w>maxW){h*=maxW/w;w=maxW}if(h>maxH){w*=maxH/h;h=maxH}canvas.width=w;canvas.height=h;ctx.drawImage(img,0,0,w,h);localStorage.setItem('nr_logo',canvas.toDataURL('image/jpeg',0.8));applyLogo();toast('تم تحميل الشعار','s');};img.src=ev.target.result;};reader.readAsDataURL(f);e.target.value='';}
@@ -721,18 +775,73 @@ function printInvoice(id){
     var inv=D.invoices.find(x=>x.id===id);
     if(!inv)return; 
     var qrData = "INV:"+inv.invoiceNo+"|DATE:"+inv.date+"|TOTAL:"+fm(inv.total)+"|CUST:"+H(inv.customer); 
-    var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data="+encodeURIComponent(qrData); 
+    var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data="+encodeURIComponent(qrData); 
     var w=window.open('','_blank'); 
-    var itemsHtml = '';
+    
+    var itemsHtml = '<table class="doc-table"><thead><tr><th style="width:5%">#</th><th>الصنف</th><th style="width:10%">الكمية</th><th style="width:15%">السعر</th><th style="width:15%">الإجمالي</th></tr></thead><tbody>';
     if(inv.posItems && inv.posItems.length > 0){
-        inv.posItems.forEach(function(p){
-            itemsHtml += '<tr><td>'+H(p.name)+'</td><td style="text-align:center">'+p.qty+'</td><td style="text-align:center">'+fm(p.price)+'</td><td style="text-align:center">'+fm(p.total)+'</td></tr>';
+        inv.posItems.forEach(function(p, idx){
+            itemsHtml += '<tr><td>'+(idx+1)+'</td><td>'+H(p.name)+'</td><td style="text-align:center">'+p.qty+'</td><td style="text-align:center">'+fm(p.price)+'</td><td style="text-align:center">'+fm(p.total)+'</td></tr>';
         });
     } else {
         var printCropName = getCleanItemName(inv.crop);
-        itemsHtml += '<tr><td>'+H(printCropName)+'</td><td style="text-align:center">'+inv.qty+'</td><td style="text-align:center">'+fm(inv.price)+'</td><td style="text-align:center">'+fm(inv.total)+'</td></tr>';
+        itemsHtml += '<tr><td>1</td><td>'+H(printCropName)+'</td><td style="text-align:center">'+inv.qty+'</td><td style="text-align:center">'+fm(inv.price)+'</td><td style="text-align:center">'+fm(inv.total)+'</td></tr>';
     }
-    w.document.write('<html dir="rtl"><head><title>فاتورة '+inv.invoiceNo+'</title>'+getPrintStylesHtml()+'</head><body>'+getPrintWatermarkAndUserHtml()+'<div class="header"><h2>'+H(getNurseryName())+'</h2><h3>فاتورة ضريبية</h3></div><p><strong>رقم الفاتورة:</strong> '+inv.invoiceNo+'<br><strong>التاريخ:</strong> '+inv.date+'<br><strong>العميل:</strong> '+H(inv.customer)+'</p><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>'+itemsHtml+'</tbody></table><div class="total">الإجمالي: '+fm(inv.total)+' '+H(inv.currency||'YER')+'</div><div style="font-size:13px;font-weight:bold;margin-top:5px;color:#333">يعادل: '+tafqeet(inv.total)+'</div><div class="qr-area"><img src="'+qrUrl+'" alt="QR Code"><br><span style="font-size:10px;color:#777">رمز الفاتورة الإلكترونية</span></div><div style="margin-top:40px;text-align:center;font-size:0.8em;color:#777;border-top:1px dashed #ccc;padding-top:10px;">'+(localStorage.getItem('nr_invoice_footer')||'شكراً لتعاملكم معنا')+'</div></body></html>'); 
+    itemsHtml += '</tbody></table>';
+
+    var nurseryName = getNurseryName();
+    var phone = localStorage.getItem('nr_phone') || '';
+    var statusBdg = inv.status==='paid' ? '<span class="status-badge status-paid">مدفوعة</span>' : '<span class="status-badge status-unpaid">غير مدفوعة</span>';
+    var subtotal = inv.amount || 0;
+    var vat = inv.vat || 0;
+    var discount = inv.discount || 0;
+    
+    w.document.write('<html dir="rtl"><head><title>فاتورة '+inv.invoiceNo+'</title>'+getPrintStylesHtml()+'</head><body>'+
+        getPrintWatermarkAndUserHtml() +
+        '<div class="doc-header">'+
+            '<div class="company-info">'+
+                '<h2>'+H(nurseryName)+'</h2>'+
+                (phone?'<p>📞 '+H(phone)+'</p>':'')+
+                '<p>فاتورة ضريبية مبسطة</p>'+
+            '</div>'+
+            '<div class="doc-meta">'+
+                '<h3>فاتورة</h3>'+
+                '<p>رقم: <b>'+H(inv.invoiceNo)+'</b></p>'+
+                '<p>التاريخ: '+H(inv.date)+'</p>'+
+                statusBdg+
+            '</div>'+
+        '</div>'+
+        '<div class="parties">'+
+            '<div class="party-box">'+
+                '<h4>فاتورة إلى (العميل)</h4>'+
+                '<p>'+H(inv.customer)+'</p>'+
+            '</div>'+
+            '<div class="party-box" style="border-right-color: #C45D3E;">'+
+                '<h4>تفاصيل الدفع</h4>'+
+                '<p>العملة: '+H(inv.currency||'YER')+'</p>'+
+                '<p>طريقة الدفع: نقدي</p>'+
+            '</div>'+
+        '</div>'+
+        itemsHtml +
+        '<div class="totals-container"><div class="totals-box">'+
+            '<div class="total-row"><span>المجموع الفرعي:</span><span>'+fm(subtotal)+'</span></div>'+
+            (discount > 0 ? '<div class="total-row"><span>الخصم:</span><span>- '+fm(discount)+'</span></div>' : '')+
+            (vat > 0 ? '<div class="total-row"><span>الضريبة (15%):</span><span>'+fm(vat)+'</span></div>' : '')+
+            '<div class="total-row grand"><span>الإجمالي:</span><span>'+fm(inv.total)+'</span></div>'+
+            '<div class="total-row"><span>المدفوع:</span><span>'+fm(inv.paid)+'</span></div>'+
+            '<div class="total-row"><span>المتبقي:</span><span>'+fm(inv.remaining)+'</span></div>'+
+        '</div></div>'+
+        '<div class="tafqeet-box">المبلغ كتابة: '+tafqeet(inv.total)+'</div>'+
+        '<div class="qr-footer">'+
+            '<div style="font-size:10px; color:#7f8c8d; max-width:60%;">'+(localStorage.getItem('nr_invoice_footer')||'شكراً لتعاملكم معنا 🌱')+'</div>'+
+            '<div style="text-align:center;"><img src="'+qrUrl+'" alt="QR Code"><br><span style="font-size:9px;color:#777">رمز الفاتورة الإلكترونية</span></div>'+
+        '</div>'+
+        '<div class="signatures">'+
+            '<div class="sig-box"><div class="sig-line">توقيع المستلم</div></div>'+
+            '<div class="sig-box"></div>'+
+            '<div class="sig-box"><div class="sig-line">توقيع المختص</div></div>'+
+        '</div>'+
+        '</body></html>'); 
     w.document.close();
     setTimeout(function(){w.print()},600); 
 }
@@ -751,9 +860,63 @@ function printThermal(id){
     w.document.close(); 
     setTimeout(function(){ w.print(); w.close(); }, 300); 
 }
-function printReceiptVoucher(payId) { var r = D.payments.find(x => x.id === payId); if(!r) return; var w = window.open('','_blank'); w.document.write('<html dir="rtl"><head><title>سند قبض</title>'+getPrintStylesHtml()+'</head><body>'+getPrintWatermarkAndUserHtml()+'<div class="header"><h2>'+H(getNurseryName())+'</h2><h3>سند قبض نقدية</h3></div><p><strong>التاريخ:</strong> '+r.date+' | <strong>العميل:</strong> '+H(r.customer)+'</p><div class="total">المبلغ: '+fm(r.amount)+' ر.ي</div><div style="font-size:13px;font-weight:bold;margin-top:5px;color:#333">يعادل: '+tafqeet(r.amount)+'</div><p style="margin-top:10px"><strong>الطريقة:</strong> '+(r.method||'نقدي')+'</p><br><p><strong>المستلم:</strong> .................... <strong>التوقيع:</strong> ....................</p></body></html>'); w.document.close(); setTimeout(()=>w.print(), 500); }
-function printPaymentVoucher(payId) { var r = D.payments.find(x => x.id === payId); if(!r) return; var w = window.open('','_blank'); w.document.write('<html dir="rtl"><head><title>سند صرف</title>'+getPrintStylesHtml()+'</head><body>'+getPrintWatermarkAndUserHtml()+'<div class="header"><h2>'+H(getNurseryName())+'</h2><h3>سند صرف نقدية</h3></div><p><strong>التاريخ:</strong> '+r.date+' | <strong>المورد:</strong> '+H(r.supplier)+' | <strong>المبلغ:</strong> '+fm(r.amount)+'</p><p><strong>الطريقة:</strong> '+(r.method||'نقدي')+'</p><br><p><strong>المستلم:</strong> .................... <strong>التوقيع:</strong> ....................</p></body></html>'); w.document.close(); setTimeout(()=>w.print(), 500); }
-function printSupplyOrder(invId) { var r = D.purchaseInvoices.find(x => x.id === invId); if(!r) return; var w = window.open('','_blank'); w.document.write('<html dir="rtl"><head><title>إذن توريد مخزني</title>'+getPrintStylesHtml()+'</head><body>'+getPrintWatermarkAndUserHtml()+'<div class="header"><h2>'+H(getNurseryName())+'</h2><h3>إذن توريد مخزني</h3></div><p><strong>رقم الإذن:</strong> '+H(r.invoiceNo)+' | <strong>التاريخ:</strong> '+r.date+' | <strong>المورد:</strong> '+H(r.supplier)+'</p><table><thead><tr><th>الصنف</th><th>الكمية</th><th>الإجمالي</th></tr></thead><tbody><tr><td>'+H(r.item)+'</td><td>'+fm(r.purchQty)+'</td><td>'+fm(r.total)+'</td></tr></tbody></table><br><p><strong>أمين المخزن:</strong> .................... <strong>توقيع المورد:</strong> ....................</p></body></html>'); w.document.close(); setTimeout(()=>w.print(), 500); }
+function printReceiptVoucher(payId) { 
+    var r = D.payments.find(x => x.id === payId); 
+    if(!r) return; 
+    var nurseryName = getNurseryName();
+    var w = window.open('','_blank'); 
+    w.document.write('<html dir="rtl"><head><title>سند قبض</title>'+getPrintStylesHtml()+'</head><body>'+
+        getPrintWatermarkAndUserHtml() +
+        '<div class="doc-header">'+
+            '<div class="company-info"><h2>'+H(nurseryName)+'</h2></div>'+
+            '<div class="doc-meta"><h3 style="color:#2D6B45;">سند قبض</h3><p>رقم: <b>PAY-'+r.id+'</b></p><p>التاريخ: '+r.date+'</p></div>'+
+        '</div>'+
+        '<div class="parties">'+
+            '<div class="party-box"><h4>استلمنا من السيد/السادة</h4><p>'+H(r.customer)+'</p></div>'+
+            '<div class="party-box" style="border-right-color:#C45D3E;"><h4>مبلغاً قدره</h4><p>'+fm(r.amount)+' ر.ي</p></div>'+
+        '</div>'+
+        '<div class="tafqeet-box">المبلغ كتابة: '+tafqeet(r.amount)+'</div>'+
+        '<div style="margin-top:20px; font-size:13px;">وذلك عن: <b>'+(r.description||'دفعة على حساب فواتير سابقة')+'</b></div>'+
+        '<div style="margin-top:15px; font-size:13px;">طريقة الدفع: <b>'+(r.method||'نقدي')+'</b> &nbsp;|&nbsp; الصندوق: <b>'+(r.cashBox||'الصندوق الرئيسي')+'</b></div>'+
+        '<div class="signatures">'+
+            '<div class="sig-box"><div class="sig-line">توقيع المحاسب</div></div>'+
+            '<div class="sig-box"></div>'+
+            '<div class="sig-box"><div class="sig-line">توقيع المستلم</div></div>'+
+        '</div>'+
+        '</body></html>'); 
+    w.document.close(); 
+    setTimeout(()=>w.print(), 500); 
+}
+function printSupplyOrder(invId) { 
+    var r = D.purchaseInvoices.find(x => x.id === invId); 
+    if(!r) return; 
+    var nurseryName = getNurseryName();
+    var w = window.open('','_blank'); 
+    w.document.write('<html dir="rtl"><head><title>إذن توريد</title>'+getPrintStylesHtml()+'</head><body>'+
+        getPrintWatermarkAndUserHtml() +
+        '<div class="doc-header">'+
+            '<div class="company-info"><h2>'+H(nurseryName)+'</h2></div>'+
+            '<div class="doc-meta"><h3 style="color:#1565C0;">إذن توريد مخزني</h3><p>رقم: <b>'+H(r.invoiceNo)+'</b></p><p>التاريخ: '+r.date+'</p></div>'+
+        '</div>'+
+        '<div class="parties">'+
+            '<div class="party-box"><h4>المورد</h4><p>'+H(r.supplier)+'</p></div>'+
+            '<div class="party-box" style="border-right-color:#1565C0;"><h4>المخزن المستلم</h4><p>'+H(r.warehouse||'مخزن المواد الخام')+'</p></div>'+
+        '</div>'+
+        '<table class="doc-table"><thead><tr><th>الصنف</th><th style="width:20%">الكمية</th><th style="width:20%">السعر</th><th style="width:20%">الإجمالي</th></tr></thead><tbody>'+
+        '<tr><td>'+H(r.item)+'</td><td style="text-align:center">'+fm(r.purchQty)+'</td><td style="text-align:center">'+fm(r.price)+'</td><td style="text-align:center">'+fm(r.total)+'</td></tr>'+
+        '</tbody></table>'+
+        '<div class="totals-container"><div class="totals-box">'+
+            '<div class="total-row grand"><span>الإجمالي:</span><span>'+fm(r.total)+'</span></div>'+
+        '</div></div>'+
+        '<div class="signatures">'+
+            '<div class="sig-box"><div class="sig-line">أمين المخزن</div></div>'+
+            '<div class="sig-box"></div>'+
+            '<div class="sig-box"><div class="sig-line">توقيع المورد</div></div>'+
+        '</div>'+
+        '</body></html>'); 
+    w.document.close(); 
+    setTimeout(()=>w.print(), 500); 
+}
 function printIssueOrder(invId) { var r = D.invoices.find(x => x.id === invId); if(!r) return; var w = window.open('','_blank'); w.document.write('<html dir="rtl"><head><title>إذن صرف مخزني</title>'+getPrintStylesHtml()+'</head><body>'+getPrintWatermarkAndUserHtml()+'<div class="header"><h2>'+H(getNurseryName())+'</h2><h3>إذن صرف مخزني</h3></div><p><strong>رقم الإذن:</strong> '+H(r.invoiceNo)+' | <strong>التاريخ:</strong> '+r.date+' | <strong>العميل:</strong> '+H(r.customer)+'</p><table><thead><tr><th>الصنف</th><th>الكمية المصروفة</th></tr></thead><tbody><tr><td>'+H(r.crop)+'</td><td>'+fm(r.qty)+'</td></tr></tbody></table><br><p><strong>أمين المخزن:</strong> .................... <strong>المستلم:</strong> ....................</p></body></html>'); w.document.close(); setTimeout(()=>w.print(), 500); }
 function sendWhatsApp(phone, msg) { if(!phone) { toast('⚠️ لا يوجد رقم هاتف', 'e'); return; } var cleanPhone = phone.replace(/[^0-9]/g, ''); if(cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2); else if(cleanPhone.startsWith('0')) cleanPhone = '967' + cleanPhone.substring(1); var url = 'https://wa.me/' + cleanPhone + '?text=' + encodeURIComponent(msg); window.open(url, '_blank'); }
 function sendInvoiceWhatsApp(invId) { 
