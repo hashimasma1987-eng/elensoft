@@ -369,6 +369,14 @@ function getPrintWatermarkAndUserHtml(){
     h += '<div style="position:fixed;bottom:10px;left:10px;font-size:9px;color:#999;z-index:1">تم الإصدار بواسطة: '+user+'</div>';
     return h;
 }
+function getPrintHeaderHtml(title) { 
+    var logo = localStorage.getItem('nr_logo') || ''; 
+    var name = getNurseryName(); 
+    var phone = localStorage.getItem('nr_phone') || ''; 
+    var logoImg = logo ? '<img src="'+logo+'" style="max-width:80px;max-height:80px;border-radius:12px;">' : '<div style="font-size:40px">🌱</div>'; 
+    var watermarkUser = getPrintWatermarkAndUserHtml(); 
+    return watermarkUser + '<div class="print-header no-print-hide" style="text-align:center; margin-bottom:25px; padding-bottom:15px; border-bottom:2px solid #2c3e50; display:none;"><div style="display:flex; justify-content:center; align-items:center; gap:20px;">' + logoImg + '<div><h2 style="margin:0; font-size:26px; color:#2c3e50;">' + H(name) + '</h2>'+(phone?'<span style="font-size:13px; color:#555;">📞 ' + H(phone) + '</span>':'')+ '<h4 style="margin:10px 0 0; color:#34495e; border-top:1px dashed #bdc3c7; padding-top:8px; display:inline-block;">' + H(title) + '</h4></div></div></div>'; 
+}
 function applyLogo(){ var logo = localStorage.getItem('nr_logo') || ''; var els = document.querySelectorAll('#main-logo, #login-logo'); els.forEach(function(el){ if(logo){ el.innerHTML = ''; el.style.backgroundImage = 'url('+logo+')'; el.style.backgroundSize = 'contain'; el.style.backgroundRepeat = 'no-repeat'; el.style.backgroundPosition = 'center'; } else { el.style.backgroundImage = 'none'; } }); }
 function handleLogoUpload(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var maxW=200,maxH=200;var w=img.width,h=img.height;if(w>maxW){h*=maxW/w;w=maxW}if(h>maxH){w*=maxH/h;h=maxH}canvas.width=w;canvas.height=h;ctx.drawImage(img,0,0,w,h);localStorage.setItem('nr_logo',canvas.toDataURL('image/jpeg',0.8));applyLogo();toast('تم تحميل الشعار','s');};img.src=ev.target.result;};reader.readAsDataURL(f);e.target.value='';}
 function handleSysLogoUpload(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas');var ctx=canvas.getContext('2d');var maxW=200,maxH=200;var w=img.width,h=img.height;if(w>maxW){h*=maxW/w;w=maxW}if(h>maxH){w*=maxH/h;h=maxH}canvas.width=w;canvas.height=h;ctx.drawImage(img,0,0,w,h);localStorage.setItem('nr_sys_logo',canvas.toDataURL('image/jpeg',0.8));toast('تم تحميل شعار النظام','s');};img.src=ev.target.result;};reader.readAsDataURL(f);e.target.value='';}
