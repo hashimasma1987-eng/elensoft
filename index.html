@@ -249,7 +249,7 @@ var localforageConfig = (typeof localforage !== 'undefined') ? localforage.creat
 var db = null;
 function initFirebase() {
     return new Promise(function(resolve) {
-        if (db) { resolve(); return; }
+        if (db && firebase.auth().currentUser) { resolve(); return; }
         if (typeof firebase !== 'undefined' && firebase.initializeApp) {
             try {
                 var firebaseConfig = {
@@ -263,9 +263,15 @@ function initFirebase() {
                 };
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
-                firebase.auth().signInAnonymously().catch(function(error) { console.error("Auth Error:", error); });
-                console.log("✅ Firebase Loaded");
-                resolve();
+                
+                // الانتظار حتى يكتمل تسجيل الدخول المجهول قبل تحميل البيانات
+                firebase.auth().signInAnonymously().then(function() {
+                    console.log("✅ Firebase Loaded & Authenticated");
+                    resolve();
+                }).catch(function(error) { 
+                    console.error("Auth Error:", error); 
+                    resolve(); 
+                });
             } catch(e) { 
                 console.log("Firebase init error", e); 
                 resolve(); 
@@ -442,7 +448,31 @@ function selectLoginUser(idx){_loginSelUser=idx;document.getElementById('login-p
 async function tryLogin(){ if(_loginSelUser===null)return; var u=getUsers()[_loginSelUser]; if(!u)return; if(u.isBlocked){ document.getElementById('login-error').textContent='🚫 تم حظر هذا الحساب. يرجى التواصل مع الإدارة'; return; } if(await verifyPassword(document.getElementById('login-pass').value, u.password)){ currentUser=u;currentRole=u.role||'مدير نظام';document.getElementById('login-overlay').classList.add('hidden');initApp(); }else{ document.getElementById('login-error').textContent='❌ كلمة السر خاطئة'; } } 
 function showFirstUserSetup(){ mMode='first-user'; openM('إنشاء مستخدم أولي',[{name:'username',label:'اسم المستخدم'},{name:'password',label:'كلمة السر',type:'password'},{name:'password2',label:'تأكيد كلمة السر',type:'password'}]); handlers['first-user']=async function(o){ if(!o.username||!o.password||o.password!==o.password2){toast('خطأ في البيانات','e');return false} var users=getUsers(); var newUserId = uid(); var hashedPass = await hashPassword(o.password); users.push({id:newUserId, username:o.username, password:hashedPass, role:'مدير نظام'}); saveUsers(users); currentUser = users.find(u => u.id === newUserId); currentRole='مدير نظام'; document.getElementById('login-overlay').classList.add('hidden'); initApp(); toast('تم إنشاء المستخدم','s'); return true; } } 
 function doLogout(){currentUser=null;currentRole='مدير نظام';localStorage.removeItem('nr_owner_session');document.getElementById('login-overlay').classList.remove('hidden');_loginSelUser=null;checkLogin()}
-async function initApp(){ if(!db) initFirebase(); loadDarkMode(); loadFocusMode(); try { await loadD(); } catch(e) { console.error("Load Error", e); } buildBranchSelector(); buildTabs(); buildBottomBar(); if(curTab !== 'superadmin') { curTab = 'summary'; } render(); applyLogo(); var roleBadge = document.getElementById('role-badge'); if(roleBadge) roleBadge.textContent = currentRole; var logoText = document.getElementById('logo-text'); if(logoText) logoText.textContent = getNurseryName(); document.body.classList.toggle('viewer-mode', isViewer()); setTimeout(function() { render(); window.dispatchEvent(new Event('resize')); }, 100); setTimeout(function() { render(); }, 1500); setTimeout(function() { checkAutoBackup(); }, 2000); initCalcDrag(); if(curTab !== 'superadmin') { initOnboarding(); } setupIdleTimer(); }
+async function initApp(){
+    if(!db) await initFirebase(); // هنا تم إضافة await لانتظار اكتمال الاتصال
+    loadDarkMode(); 
+    loadFocusMode();
+    try { 
+        await loadD(); 
+    } catch(e) { 
+        console.error("Load Error", e); 
+    }
+    buildBranchSelector();
+    buildTabs(); buildBottomBar(); 
+    if(curTab !== 'superadmin') { curTab = 'summary'; }
+    render(); applyLogo(); 
+    var roleBadge = document.getElementById('role-badge');
+    if(roleBadge) roleBadge.textContent = currentRole; 
+    var logoText = document.getElementById('logo-text');
+    if(logoText) logoText.textContent = getNurseryName(); 
+    document.body.classList.toggle('viewer-mode', isViewer());
+    setTimeout(function() { render(); window.dispatchEvent(new Event('resize')); }, 100);
+    setTimeout(function() { render(); }, 1500);
+    setTimeout(function() { checkAutoBackup(); }, 2000);
+    initCalcDrag();    
+    if(curTab !== 'superadmin') { initOnboarding(); }
+    setupIdleTimer();
+}
 async function checkAutoBackup() { try { if (!localforageConfig) return; var lastBackup = await localforageConfig.getItem('nr_last_auto_backup'); var today = new Date().toISOString().split('T')[0]; if (lastBackup !== today) { var backupObj = { date: today, time: new Date().toLocaleTimeString('ar-EG'), data: {} }; DATA_KEYS.forEach(function(k) { backupObj.data[k] = D[k]; }); var backups = (await localforageConfig.getItem('nr_auto_backups')) || []; backups.push(backupObj); if (backups.length > 3) { backups = backups.slice(backups.length - 3); } await localforageConfig.setItem('nr_auto_backups', backups); await localforageConfig.setItem('nr_last_auto_backup', today); console.log('✅ Auto Backup Done: ' + today); } } catch(e) { console.error("Backup Error:", e); } }
 function syncIdCounter() { var maxId = 0; DATA_KEYS.forEach(function(k) { (D[k] || []).forEach(function(item) { if (item.id && Number(item.id) > maxId) { maxId = Number(item.id); } }); }); _idC = maxId + 1; }
 async function loadD(){
