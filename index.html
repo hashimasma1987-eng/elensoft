@@ -248,23 +248,32 @@ var D={}; var handlers={};
 var localforageConfig = (typeof localforage !== 'undefined') ? localforage.createInstance({ name: 'nursery-erp', storeName: 'nursery_db' }) : null;
 var db = null;
 function initFirebase() {
-    if (typeof firebase !== 'undefined' && firebase.initializeApp) {
-        try {
-            var firebaseConfig = {
-                apiKey: "AIzaSyDKWp5k6gnf7bF0Mlyz8lebeW6_j2mVQmQ",
-                authDomain: "nursery-erp-63713.firebaseapp.com",
-                projectId: "nursery-erp-63713",
-                storageBucket: "nursery-erp-63713.firebasestorage.app",
-                messagingSenderId: "804355879833",
-                appId: "1:804355879833:web:bcb2a9c047d28069231908",
-                measurementId: "G-F262SSEYJY"
-            };
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            firebase.auth().signInAnonymously().catch(function(error) { console.error("Auth Error:", error); });
-            console.log("✅ Firebase Loaded");
-        } catch(e) { console.log("Firebase init error", e); }
-    } else { setTimeout(initFirebase, 500); }
+    return new Promise(function(resolve) {
+        if (db) { resolve(); return; }
+        if (typeof firebase !== 'undefined' && firebase.initializeApp) {
+            try {
+                var firebaseConfig = {
+                    apiKey: "AIzaSyDKWp5k6gnf7bF0Mlyz8lebeW6_j2mVQmQ",
+                    authDomain: "nursery-erp-63713.firebaseapp.com",
+                    projectId: "nursery-erp-63713",
+                    storageBucket: "nursery-erp-63713.firebasestorage.app",
+                    messagingSenderId: "804355879833",
+                    appId: "1:804355879833:web:bcb2a9c047d28069231908",
+                    measurementId: "G-F262SSEYJY"
+                };
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                firebase.auth().signInAnonymously().catch(function(error) { console.error("Auth Error:", error); });
+                console.log("✅ Firebase Loaded");
+                resolve();
+            } catch(e) { 
+                console.log("Firebase init error", e); 
+                resolve(); 
+            }
+        } else {
+            setTimeout(function() { initFirebase().then(resolve); }, 300);
+        }
+    });
 }
 var SHEETS=[{key:'summary',name:'الملخص',icon:'📊'},{key:'pos',name:'نقطة البيع',icon:'🛒'},{key:'posorder',name:'نقطة الطلب',icon:'📝'},{key:'operation',name:'التشغيل',icon:'🌱'},{key:'orders',name:'الطلبيات',icon:'📋'},{key:'items',name:'الأصناف',icon:'📦'},{key:'inventory',name:'المخزون',icon:'🗄️'},{key:'invoices',name:'الفواتير',icon:'🧾'},{key:'returns',name:'المرتجعات',icon:'↩️'},{key:'payments',name:'السندات',icon:'💰'},{key:'expenses',name:'المصروفات',icon:'💸'},{key:'purchaseInvoices',name:'المشتريات',icon:'🛒'},{key:'clients',name:'العملاء',icon:'👥'},{key:'suppliers',name:'الموردون',icon:'🏭'},{key:'employees',name:'الموظفون',icon:'👷'},{key:'attendance',name:'الحضور',icon:'🕓'},{key:'payroll',name:'مسير الرواتب',icon:'💵'},{key:'production',name:'الإنتاج',icon:'✅'},{key:'delivered',name:'المسلمات',icon:'🚚'},{key:'fixedAssets',name:'الأصول الثابتة',icon:'🏗️'},{key:'inventoryAdj',name:'تسوية المخزون',icon:'⚖️'},{key:'bankrec',name:'مطابقة الحسابات',icon:'🏦'},{key:'vatreturn',name:'الإقرار الضريبي',icon:'🧾'},{key:'costcenters',name:'مراكز التكلفة',icon:'🎯'},{key:'statement',name:'كشف حساب',icon:'📑'},{key:'aging',name:'أعمار الديون',icon:'⏳'},{key:'cashflow',name:'التدفق النقدي',icon:'💸'},{key:'balances',name:'الأرصدة',icon:'⚖️'},{key:'pnl',name:'الأرباح والخسائر',icon:'📉'},{key:'accounts',name:'شجرة الحسابات',icon:'🌳'},{key:'journal',name:'اليومية',icon:'📒'},{key:'trialbalance',name:'ميزان المراجعة',icon:'⚖️'},{key:'ledger',name:'دفتر الأستاذ',icon:'📚'},{key:'balancesheet',name:'الميزانية العمومية',icon:'🏦'},{key:'openingBalances',name:'أرصدة أول المدة',icon:'🔛'},{key:'branches',name:'الفروع',icon:'🏢'},{key:'fiscalYears',name:'السنوات المالية',icon:'🗓️'},{key:'auditlog',name:'سجل النشاط',icon:'📜'},{key:'alerts',name:'التنبيهات',icon:'🔔'},{key:'analysis',name:'التحليل',icon:'📈'},{key:'salesmen',name:'أداء البائعين',icon:'🏆'},{key:'shifts',name:'الورديات',icon:'⏱️'},{key:'trash',name:'سلة المحذوفات',icon:'🗑️'}];
 var DEFAULT_ROLES = [{ name: 'مدير نظام', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'المدير التنفيذي', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'مدير عمل', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','operation','orders','items','inventory','delivered','production','employees','attendance','payroll','branches','alerts','analysis'] },{ name: 'محاسب', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','invoices','returns','payments','expenses','purchaseInvoices','clients','suppliers','accounts','journal','ledger','trialbalance','pnl','balancesheet','statement','aging','bankrec','vatreturn','openingBalances','branches','fiscalYears','alerts','analysis'] }];
@@ -289,9 +298,10 @@ function getAllowedScreens() { var role = getMyRole(); var roleScreens = role.sc
 function getClosedDate(){return localStorage.getItem('nr_closed_date')||''} function setClosedDate(d){localStorage.setItem('nr_closed_date',d)} function isDateClosed(date){if(!date||isViewer())return false;var cd=getClosedDate();return cd&&date<=cd}
 function addAuditLog(action, details) { if(!D.auditLog) D.auditLog = []; D.auditLog.push({ id: uid(), date: new Date().toISOString(), user: currentUser ? currentUser.username : 'نظام', action: action, details: details }); saveD('auditLog'); }
 async function checkLogin(){
-    initFirebase(); 
-    
-    // 1. التحقق من جلسة المالك الدائمة على هذا الجهاز
+    // الانتظار حتى تنتهي مكتبة Firebase من التحميل تماماً
+    await initFirebase(); 
+
+    // 1. التحقق من جلسة المالك الدائمة
     var isOwnerSession = localStorage.getItem('nr_owner_session') === 'active';
     if (isOwnerSession) {
         var ownerConfigChk = await db.collection("system_control").doc("owner_config").get();
@@ -305,37 +315,46 @@ async function checkLogin(){
         }
     }
 
-    // 2. تدفق المالك (First Time Setup & Verify)
-    if (window.location.hash === '#owner' || window.location.hash.startsWith('#owner-verify')) {
+    // 2. التحقق من رابط التفعيل القادم من البريد
+    var urlParams = new URLSearchParams(window.location.search);
+    var isVerifyLink = urlParams.get('verify') === 'owner' || window.location.hash === '#owner' || window.location.hash.startsWith('#owner-verify');
+
+    if (isVerifyLink) {
         var ownerConfig = await db.collection("system_control").doc("owner_config").get();
         
         // إذا تم الضغط على رابط البريد، والنظام مثبت مسبقاً، ادخل مباشرة
-        if (window.location.hash.startsWith('#owner-verify') && ownerConfig.exists && ownerConfig.data().password) {
+        if (urlParams.get('verify') === 'owner' && ownerConfig.exists && ownerConfig.data().password) {
             localStorage.setItem('nr_owner_session', 'active');
             currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
             currentRole = 'مدير نظام';
-            window.location.hash = '';
+            window.history.replaceState({}, document.title, window.location.pathname); // تنظيف الرابط
             document.getElementById('login-overlay').classList.add('hidden');
             curTab = 'superadmin';
             initApp();
             return;
         }
         
+        // إذا النظام غير مثبت، اعرض شاشة الإعداد
         if (!ownerConfig.exists || !ownerConfig.data().password) {
-            if (window.location.hash === '#owner') { showOwnerSetupScreen(); return; }
+            if (window.location.hash === '#owner' || urlParams.get('verify') === 'owner') { 
+                showOwnerSetupScreen(); 
+                return; 
+            }
         } 
         
-        if (window.location.hash.startsWith('#owner-verify')) { 
+        // إذا كان يطلب إدخال كلمة المرور لأول مرة
+        if (urlParams.get('verify') === 'owner' || window.location.hash.startsWith('#owner-verify')) { 
             showOwnerPasswordSetup(ownerConfig.data().email); 
             return; 
         }
         
-        // تسجيل الدخول العادي للمالك (عند كتابة #owner)
+        // تسجيل الدخول العادي للمالك عند كتابة #owner
         var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
         if (pass === ownerConfig.data().password) {
             localStorage.setItem('nr_owner_session', 'active'); 
             currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
             currentRole = 'مدير نظام';
+            window.history.replaceState({}, document.title, window.location.pathname);
             document.getElementById('login-overlay').classList.add('hidden');
             curTab = 'superadmin';
             initApp();
@@ -378,7 +397,16 @@ async function checkLogin(){
 }
 async function fetchTenantData(tentId) { if(!db) return null; try { var doc = await db.collection("system_control").doc("all_tenants").get(); if(doc.exists) { var arr = doc.data().list || []; return arr.find(t => t.id === tentId); } } catch(e) { console.error("Fetch tenant error", e); } return null; }
 function showOwnerSetupScreen() { var h = '<div style="text-align:center; padding: 20px;"><h3>👑 تثبيت النظام كمالك</h3><p style="font-size:12px; color:var(--mt); margin-bottom:20px;">سيتم إرسال طلب الموافقة إلى البريد الإلكتروني الخاص بالمالك المسجل مسبقاً.</p><div class="fg"><input type="email" id="owner-email-input" value="'+OWNER_EMAIL+'" readonly style="text-align:center; direction:ltr; background:#f0f0f0; font-weight:700;"></div><button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="sendOwnerApprovalEmail()">📤 إرسال طلب الموافقة إلى البريد</button></div>'; document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-box').innerHTML = h; }
-function sendOwnerApprovalEmail() { var email = OWNER_EMAIL; var subject = "الموافقة على تثبيت نظام ELEN SOFT كمالك"; var body = "مرحباً،\nيرجى الضغط على الرابط التالي للموافقة على تثبيت النظام كمالك وإدخال كلمة المرور:\n\n" + window.location.origin + window.location.pathname + "#owner-verify"; var mailtoLink = "mailto:" + email + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body); window.open(mailtoLink, '_blank'); toast('⏳ تم فتح تطبيق البريد، يرجى مراجعة بريدك وإرسال الرسالة للضغط على رابط التفعيل', 's'); }
+function sendOwnerApprovalEmail() {
+    var email = OWNER_EMAIL;
+    var subject = "الموافقة على تثبيت نظام ELEN SOFT كمالك";
+    // استخدام ?verify=owner بدلاً من #owner-verify لضمان عمله داخل تطبيقات الهاتف
+    var body = "مرحباً،\nيرجى الضغط على الرابط التالي للموافقة على تثبيت النظام كمالك وإدخال كلمة المرور:\n\n" + window.location.origin + window.location.pathname + "?verify=owner";
+    var mailtoLink = "mailto:" + email + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    
+    window.open(mailtoLink, '_blank');
+    toast('⏳ تم فتح تطبيق البريد، يرجى مراجعة بريدك وإرسال الرسالة للضغط على رابط التفعيل', 's');
+}
 function showOwnerPasswordSetup(email) { var h = '<div style="text-align:center; padding: 20px;"><h3>✅ تأكيد تثبيت المالك</h3><p style="font-size:12px; color:var(--mt); margin-bottom:20px;">تمت الموافقة عبر البريد: <b>'+OWNER_EMAIL+'</b>. يرجى الآن إدخال كلمة مرور المالك لتأمين اللوحة.</p><div class="fg"><input type="password" id="owner-pass-input" placeholder="كلمة مرور المالك" style="text-align:center; direction:ltr;"></div><button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="saveOwnerConfig(\''+OWNER_EMAIL+'\')">💾 حفظ وتثبيت</button></div>'; document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-box').innerHTML = h; }
 async function saveOwnerConfig(email) {
     var pass = document.getElementById('owner-pass-input').value;
