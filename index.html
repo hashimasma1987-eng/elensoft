@@ -322,49 +322,50 @@ async function checkLogin(){
     if (isVerifyLink) {
         var ownerConfig = await db.collection("system_control").doc("owner_config").get();
         
-        // إذا تم الضغط على رابط البريد، والنظام مثبت مسبقاً، ادخل مباشرة
-        if (urlParams.get('verify') === 'owner' && ownerConfig.exists && ownerConfig.data().password) {
-            localStorage.setItem('nr_owner_session', 'active');
-            currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
-            currentRole = 'مدير نظام';
-            window.history.replaceState({}, document.title, window.location.pathname); // تنظيف الرابط
-            document.getElementById('login-overlay').classList.add('hidden');
-            curTab = 'superadmin';
-            initApp();
+        // إذا جاء المستخدم من رابط البريد (?verify=owner)
+        if (urlParams.get('verify') === 'owner' || window.location.hash.startsWith('#owner-verify')) {
+            
+            // إذا كان النظام مثبتاً مسبقاً وكلمة المرور موجودة، سجل الدخول مباشرة
+            if (ownerConfig.exists && ownerConfig.data().password) {
+                localStorage.setItem('nr_owner_session', 'active');
+                currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+                currentRole = 'مدير نظام';
+                window.history.replaceState({}, document.title, window.location.pathname); // تنظيف الرابط
+                document.getElementById('login-overlay').classList.add('hidden');
+                curTab = 'superadmin';
+                initApp();
+                return;
+            } else {
+                // إذا لم يكن مثبتاً (هذه أول مرة يضغط فيها على الرابط)، اعرض شاشة إدخال كلمة المرور فوراً
+                showOwnerPasswordSetup(OWNER_EMAIL);
+                return;
+            }
+        }
+        
+        // إذا كتب المالك الرابط يدوياً (#owner)
+        if (window.location.hash === '#owner') {
+            if (ownerConfig.exists && ownerConfig.data().password) {
+                var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
+                if (pass === ownerConfig.data().password) {
+                    localStorage.setItem('nr_owner_session', 'active'); 
+                    currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+                    currentRole = 'مدير نظام';
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    curTab = 'superadmin';
+                    initApp();
+                } else {
+                    toast('❌ كلمة المرور خاطئة', 'e');
+                    window.location.hash = '';
+                    applyLogo();
+                    document.getElementById('login-overlay').classList.remove('hidden');
+                }
+            } else {
+                // أول تثبيت للنظام
+                showOwnerSetupScreen();
+            }
             return;
         }
-        
-        // إذا النظام غير مثبت، اعرض شاشة الإعداد
-        if (!ownerConfig.exists || !ownerConfig.data().password) {
-            if (window.location.hash === '#owner' || urlParams.get('verify') === 'owner') { 
-                showOwnerSetupScreen(); 
-                return; 
-            }
-        } 
-        
-        // إذا كان يطلب إدخال كلمة المرور لأول مرة
-        if (urlParams.get('verify') === 'owner' || window.location.hash.startsWith('#owner-verify')) { 
-            showOwnerPasswordSetup(ownerConfig.data().email); 
-            return; 
-        }
-        
-        // تسجيل الدخول العادي للمالك عند كتابة #owner
-        var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
-        if (pass === ownerConfig.data().password) {
-            localStorage.setItem('nr_owner_session', 'active'); 
-            currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
-            currentRole = 'مدير نظام';
-            window.history.replaceState({}, document.title, window.location.pathname);
-            document.getElementById('login-overlay').classList.add('hidden');
-            curTab = 'superadmin';
-            initApp();
-        } else {
-            toast('❌ كلمة المرور خاطئة', 'e');
-            window.location.hash = '';
-            applyLogo();
-            document.getElementById('login-overlay').classList.remove('hidden');
-        }
-        return;
     }
 
     // 3. تدفق العميل (إذا لم يكن مسجلاً)
