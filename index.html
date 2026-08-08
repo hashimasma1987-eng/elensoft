@@ -249,7 +249,6 @@ var localforageConfig = (typeof localforage !== 'undefined') ? localforage.creat
 var db = null;
 function initFirebase() {
     return new Promise(function(resolve) {
-        if (db && firebase.auth().currentUser) { resolve(); return; }
         if (typeof firebase !== 'undefined' && firebase.initializeApp) {
             try {
                 var firebaseConfig = {
@@ -264,13 +263,19 @@ function initFirebase() {
                 firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 
-                // الانتظار حتى يكتمل تسجيل الدخول المجهول قبل تحميل البيانات
-                firebase.auth().signInAnonymously().then(function() {
-                    console.log("✅ Firebase Loaded & Authenticated");
-                    resolve();
-                }).catch(function(error) { 
-                    console.error("Auth Error:", error); 
-                    resolve(); 
+                firebase.auth().onAuthStateChanged(function(user) {
+                    if (user) {
+                        console.log("✅ Firebase Authenticated");
+                        resolve();
+                    } else {
+                        firebase.auth().signInAnonymously().then(function() {
+                            console.log("✅ Firebase Authenticated (New)");
+                            resolve();
+                        }).catch(function(error) { 
+                            console.error("Auth Error:", error); 
+                            resolve(); 
+                        });
+                    }
                 });
             } catch(e) { 
                 console.log("Firebase init error", e); 
@@ -304,20 +309,23 @@ function getAllowedScreens() { var role = getMyRole(); var roleScreens = role.sc
 function getClosedDate(){return localStorage.getItem('nr_closed_date')||''} function setClosedDate(d){localStorage.setItem('nr_closed_date',d)} function isDateClosed(date){if(!date||isViewer())return false;var cd=getClosedDate();return cd&&date<=cd}
 function addAuditLog(action, details) { if(!D.auditLog) D.auditLog = []; D.auditLog.push({ id: uid(), date: new Date().toISOString(), user: currentUser ? currentUser.username : 'نظام', action: action, details: details }); saveD('auditLog'); }
 async function checkLogin(){
-    // الانتظار حتى تنتهي مكتبة Firebase من التحميل تماماً
     await initFirebase(); 
 
     // 1. التحقق من جلسة المالك الدائمة
     var isOwnerSession = localStorage.getItem('nr_owner_session') === 'active';
     if (isOwnerSession) {
-        var ownerConfigChk = await db.collection("system_control").doc("owner_config").get();
-        if (ownerConfigChk.exists && ownerConfigChk.data().password) {
-            currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
-            currentRole = 'مدير نظام';
-            document.getElementById('login-overlay').classList.add('hidden');
-            curTab = 'superadmin';
-            initApp();
-            return; 
+        try {
+            var ownerConfigChk = await db.collection("system_control").doc("owner_config").get();
+            if (ownerConfigChk.exists && ownerConfigChk.data().password) {
+                currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+                currentRole = 'مدير نظام';
+                document.getElementById('login-overlay').classList.add('hidden');
+                curTab = 'superadmin';
+                initApp();
+                return; 
+            }
+        } catch(e) {
+            console.error("Owner config check error", e);
         }
     }
 
@@ -326,51 +334,56 @@ async function checkLogin(){
     var isVerifyLink = urlParams.get('verify') === 'owner' || window.location.hash === '#owner' || window.location.hash.startsWith('#owner-verify');
 
     if (isVerifyLink) {
-        var ownerConfig = await db.collection("system_control").doc("owner_config").get();
-        
-        // إذا جاء المستخدم من رابط البريد (?verify=owner)
-        if (urlParams.get('verify') === 'owner' || window.location.hash.startsWith('#owner-verify')) {
+        try {
+            var ownerConfig = await db.collection("system_control").doc("owner_config").get();
             
-            // إذا كان النظام مثبتاً مسبقاً وكلمة المرور موجودة، سجل الدخول مباشرة
-            if (ownerConfig.exists && ownerConfig.data().password) {
-                localStorage.setItem('nr_owner_session', 'active');
-                currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
-                currentRole = 'مدير نظام';
-                window.history.replaceState({}, document.title, window.location.pathname); // تنظيف الرابط
-                document.getElementById('login-overlay').classList.add('hidden');
-                curTab = 'superadmin';
-                initApp();
-                return;
-            } else {
-                // إذا لم يكن مثبتاً (هذه أول مرة يضغط فيها على الرابط)، اعرض شاشة إدخال كلمة المرور فوراً
-                showOwnerPasswordSetup(OWNER_EMAIL);
-                return;
-            }
-        }
-        
-        // إذا كتب المالك الرابط يدوياً (#owner)
-        if (window.location.hash === '#owner') {
-            if (ownerConfig.exists && ownerConfig.data().password) {
-                var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
-                if (pass === ownerConfig.data().password) {
-                    localStorage.setItem('nr_owner_session', 'active'); 
+            // إذا جاء المستخدم من رابط البريد (?verify=owner)
+            if (urlParams.get('verify') === 'owner' || window.location.hash.startsWith('#owner-verify')) {
+                
+                // إذا كان النظام مثبتاً مسبقاً وكلمة المرور موجودة، سجل الدخول مباشرة
+                if (ownerConfig.exists && ownerConfig.data().password) {
+                    localStorage.setItem('nr_owner_session', 'active');
                     currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
                     currentRole = 'مدير نظام';
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    window.history.replaceState({}, document.title, window.location.pathname); // تنظيف الرابط
                     document.getElementById('login-overlay').classList.add('hidden');
                     curTab = 'superadmin';
                     initApp();
+                    return;
                 } else {
-                    toast('❌ كلمة المرور خاطئة', 'e');
-                    window.location.hash = '';
-                    applyLogo();
-                    document.getElementById('login-overlay').classList.remove('hidden');
+                    // إذا لم يكن مثبتاً (هذه أول مرة يضغط فيها على الرابط)، اعرض شاشة إدخال كلمة المرور فوراً
+                    showOwnerPasswordSetup(OWNER_EMAIL);
+                    return;
                 }
-            } else {
-                // أول تثبيت للنظام
-                showOwnerSetupScreen();
             }
-            return;
+            
+            // إذا كتب المالك الرابط يدوياً (#owner)
+            if (window.location.hash === '#owner') {
+                if (ownerConfig.exists && ownerConfig.data().password) {
+                    var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
+                    if (pass === ownerConfig.data().password) {
+                        localStorage.setItem('nr_owner_session', 'active'); 
+                        currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+                        currentRole = 'مدير نظام';
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        document.getElementById('login-overlay').classList.add('hidden');
+                        curTab = 'superadmin';
+                        initApp();
+                    } else {
+                        toast('❌ كلمة المرور خاطئة', 'e');
+                        window.location.hash = '';
+                        applyLogo();
+                        document.getElementById('login-overlay').classList.remove('hidden');
+                    }
+                } else {
+                    // أول تثبيت للنظام
+                    showOwnerSetupScreen();
+                }
+                return;
+            }
+        } catch(e) {
+            console.error("Owner verify error", e);
+            toast('⚠️ خطأ في الاتصال بالسحابة. تأكد من إعداد Firebase.', 'e');
         }
     }
 
@@ -449,7 +462,7 @@ async function tryLogin(){ if(_loginSelUser===null)return; var u=getUsers()[_log
 function showFirstUserSetup(){ mMode='first-user'; openM('إنشاء مستخدم أولي',[{name:'username',label:'اسم المستخدم'},{name:'password',label:'كلمة السر',type:'password'},{name:'password2',label:'تأكيد كلمة السر',type:'password'}]); handlers['first-user']=async function(o){ if(!o.username||!o.password||o.password!==o.password2){toast('خطأ في البيانات','e');return false} var users=getUsers(); var newUserId = uid(); var hashedPass = await hashPassword(o.password); users.push({id:newUserId, username:o.username, password:hashedPass, role:'مدير نظام'}); saveUsers(users); currentUser = users.find(u => u.id === newUserId); currentRole='مدير نظام'; document.getElementById('login-overlay').classList.add('hidden'); initApp(); toast('تم إنشاء المستخدم','s'); return true; } } 
 function doLogout(){currentUser=null;currentRole='مدير نظام';localStorage.removeItem('nr_owner_session');document.getElementById('login-overlay').classList.remove('hidden');_loginSelUser=null;checkLogin()}
 async function initApp(){
-    if(!db) await initFirebase(); // هنا تم إضافة await لانتظار اكتمال الاتصال
+    if(!db) await initFirebase(); 
     loadDarkMode(); 
     loadFocusMode();
     try { 
@@ -1462,7 +1475,7 @@ var _idleTimer = null;
 function setupIdleTimer() { if (_idleTimer) clearTimeout(_idleTimer); var timeoutMins = localStorage.getItem('nr_timeout') || '0'; if (timeoutMins === '0') return; var timeoutMs = parseInt(timeoutMins) * 60000; window.onmousemove = window.onkeydown = window.ontouchstart = function() { if (_idleTimer) clearTimeout(_idleTimer); _idleTimer = setTimeout(function() { toast('⏳ انتهت الجلسة لعدم النشاط، تم تسجيل الخروج', 'e'); doLogout(); }, timeoutMs); }; _idleTimer = setTimeout(function() { toast('⏳ انتهت الجلسة لعدم النشاط، تم تسجيل الخروج', 'e'); doLogout(); }, timeoutMs); }
 async function lockSystemNow() { document.getElementById('content').style.filter = 'blur(10px)'; document.getElementById('content').style.pointerEvents = 'none'; var pass = prompt('🔐 النظام مقفل. أدخل كلمة المرور للعودة:'); if (pass && currentUser && await verifyPassword(pass, currentUser.password)) { document.getElementById('content').style.filter = 'none'; document.getElementById('content').style.pointerEvents = 'auto'; toast('✅ مرحباً بعودتك', 's'); } else { doLogout(); } }
 function initOnboarding() { showSlide(0); document.getElementById('onboard-overlay').classList.add('show'); }
-(async function() { initFirebase(); try { await loadD(); } catch(e) { console.error("Initial Load Error", e); } checkLogin(); buildQuickNav(); })();
+(async function() { await initFirebase(); checkLogin(); buildQuickNav(); })();
 window.addEventListener('online', function() { setSyncStatus('syncing'); forceCloudSync().then(function(){setSyncStatus('online');}).catch(function(){setSyncStatus('error');}); });
 window.addEventListener('offline', function() { setSyncStatus('offline'); });
 if(!navigator.onLine) setSyncStatus('offline');
