@@ -290,10 +290,12 @@ function getClosedDate(){return localStorage.getItem('nr_closed_date')||''} func
 function addAuditLog(action, details) { if(!D.auditLog) D.auditLog = []; D.auditLog.push({ id: uid(), date: new Date().toISOString(), user: currentUser ? currentUser.username : 'نظام', action: action, details: details }); saveD('auditLog'); }
 async function checkLogin(){
     initFirebase(); 
+    
+    // 1. التحقق من جلسة المالك الدائمة على هذا الجهاز
     var isOwnerSession = localStorage.getItem('nr_owner_session') === 'active';
     if (isOwnerSession) {
-        var ownerConfig = await db.collection("system_control").doc("owner_config").get();
-        if (ownerConfig.exists && ownerConfig.data().password) {
+        var ownerConfigChk = await db.collection("system_control").doc("owner_config").get();
+        if (ownerConfigChk.exists && ownerConfigChk.data().password) {
             currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
             currentRole = 'مدير نظام';
             document.getElementById('login-overlay').classList.add('hidden');
@@ -302,12 +304,33 @@ async function checkLogin(){
             return; 
         }
     }
+
+    // 2. تدفق المالك (First Time Setup & Verify)
     if (window.location.hash === '#owner' || window.location.hash.startsWith('#owner-verify')) {
         var ownerConfig = await db.collection("system_control").doc("owner_config").get();
+        
+        // إذا تم الضغط على رابط البريد، والنظام مثبت مسبقاً، ادخل مباشرة
+        if (window.location.hash.startsWith('#owner-verify') && ownerConfig.exists && ownerConfig.data().password) {
+            localStorage.setItem('nr_owner_session', 'active');
+            currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+            currentRole = 'مدير نظام';
+            window.location.hash = '';
+            document.getElementById('login-overlay').classList.add('hidden');
+            curTab = 'superadmin';
+            initApp();
+            return;
+        }
+        
         if (!ownerConfig.exists || !ownerConfig.data().password) {
             if (window.location.hash === '#owner') { showOwnerSetupScreen(); return; }
         } 
-        if (window.location.hash.startsWith('#owner-verify')) { showOwnerPasswordSetup(ownerConfig.data().email); return; }
+        
+        if (window.location.hash.startsWith('#owner-verify')) { 
+            showOwnerPasswordSetup(ownerConfig.data().email); 
+            return; 
+        }
+        
+        // تسجيل الدخول العادي للمالك (عند كتابة #owner)
         var pass = prompt('🔐 أدخل كلمة مرور مالك النظام:');
         if (pass === ownerConfig.data().password) {
             localStorage.setItem('nr_owner_session', 'active'); 
@@ -324,6 +347,8 @@ async function checkLogin(){
         }
         return;
     }
+
+    // 3. تدفق العميل (إذا لم يكن مسجلاً)
     if(!_nurseryId) { showTenantRequestScreen(); return; }
     var tenantData = await fetchTenantData(_nurseryId);
     if(!tenantData) { toast('⛔ رمز المنشأة غير معروف', 'e'); showTenantRequestScreen(); return; }
@@ -338,7 +363,13 @@ async function checkLogin(){
     var loginTitle = document.getElementById('login-title');
     if(loginTitle) loginTitle.textContent = getNurseryName();
     var users=getUsers();
-    if(!users.length){document.getElementById('login-overlay').classList.remove('hidden');document.getElementById('login-users').innerHTML='';document.getElementById('login-pass-area').style.display='none';document.getElementById('login-setup').style.display='block';return}
+    if(!users.length){
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.getElementById('login-users').innerHTML='';
+        document.getElementById('login-pass-area').style.display='none';
+        document.getElementById('login-setup').style.display='block';
+        return;
+    }
     document.getElementById('login-setup').style.display='none';
     var h='';users.forEach(function(u,i){h+='<div onclick="selectLoginUser('+i+')" style="width:100%;padding:11px;background:var(--bg);border:2px solid var(--bd);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:38px;height:38px;border-radius:10px;background:#1B5E2022;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px">👑</div><div style="font-size:12px;font-weight:700">'+H(u.username)+'</div></div>'});
     document.getElementById('login-users').innerHTML=h;
@@ -349,7 +380,33 @@ async function fetchTenantData(tentId) { if(!db) return null; try { var doc = aw
 function showOwnerSetupScreen() { var h = '<div style="text-align:center; padding: 20px;"><h3>👑 تثبيت النظام كمالك</h3><p style="font-size:12px; color:var(--mt); margin-bottom:20px;">سيتم إرسال طلب الموافقة إلى البريد الإلكتروني الخاص بالمالك المسجل مسبقاً.</p><div class="fg"><input type="email" id="owner-email-input" value="'+OWNER_EMAIL+'" readonly style="text-align:center; direction:ltr; background:#f0f0f0; font-weight:700;"></div><button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="sendOwnerApprovalEmail()">📤 إرسال طلب الموافقة إلى البريد</button></div>'; document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-box').innerHTML = h; }
 function sendOwnerApprovalEmail() { var email = OWNER_EMAIL; var subject = "الموافقة على تثبيت نظام ELEN SOFT كمالك"; var body = "مرحباً،\nيرجى الضغط على الرابط التالي للموافقة على تثبيت النظام كمالك وإدخال كلمة المرور:\n\n" + window.location.origin + window.location.pathname + "#owner-verify"; var mailtoLink = "mailto:" + email + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body); window.open(mailtoLink, '_blank'); toast('⏳ تم فتح تطبيق البريد، يرجى مراجعة بريدك وإرسال الرسالة للضغط على رابط التفعيل', 's'); }
 function showOwnerPasswordSetup(email) { var h = '<div style="text-align:center; padding: 20px;"><h3>✅ تأكيد تثبيت المالك</h3><p style="font-size:12px; color:var(--mt); margin-bottom:20px;">تمت الموافقة عبر البريد: <b>'+OWNER_EMAIL+'</b>. يرجى الآن إدخال كلمة مرور المالك لتأمين اللوحة.</p><div class="fg"><input type="password" id="owner-pass-input" placeholder="كلمة مرور المالك" style="text-align:center; direction:ltr;"></div><button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="saveOwnerConfig(\''+OWNER_EMAIL+'\')">💾 حفظ وتثبيت</button></div>'; document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-box').innerHTML = h; }
-async function saveOwnerConfig(email) { var pass = document.getElementById('owner-pass-input').value; if(!pass) { toast('أدخل كلمة المرور', 'e'); return; } try { var user = firebase.auth().currentUser; var uid = user ? user.uid : 'unknown'; await db.collection("system_control").doc("owner_config").set({ email: email, password: pass, owner_uid: uid, activatedAt: new Date().toISOString() }); localStorage.setItem('nr_owner_session', 'active'); toast('✅ تم تثبيت النظام كمالك بنجاح', 's'); setTimeout(function(){ window.location.hash = ''; location.reload(); }, 1500); } catch(e) { toast('خطأ في الحفظ', 'e'); } }
+async function saveOwnerConfig(email) {
+    var pass = document.getElementById('owner-pass-input').value;
+    if(!pass) { toast('أدخل كلمة المرور', 'e'); return; }
+    try {
+        var user = firebase.auth().currentUser;
+        var uid = user ? user.uid : 'unknown';
+        await db.collection("system_control").doc("owner_config").set({
+            email: email,
+            password: pass,
+            owner_uid: uid,
+            activatedAt: new Date().toISOString()
+        });
+        
+        // تفعيل الجلسة وتسجيل الدخول المباشر بدون إعادة تحميل الصفحة
+        localStorage.setItem('nr_owner_session', 'active');
+        currentUser = { username: 'مالك النظام', role: 'مدير نظام' };
+        currentRole = 'مدير نظام';
+        window.location.hash = ''; // تنظيف الرابط
+        document.getElementById('login-overlay').classList.add('hidden');
+        curTab = 'superadmin';
+        initApp(); // فتح لوحة تحكم المالك مباشرة
+        
+        toast('✅ تم تثبيت النظام كمالك بنجاح', 's');
+    } catch(e) {
+        toast('خطأ في الحفظ', 'e');
+    }
+}
 function showTenantRequestScreen(existingData) { var d = existingData || {}; var isPending = d.status === 'pending'; var h = '<div style="text-align:center; padding: 20px;"><h3>🏢 تفعيل النظام</h3><p style="font-size:12px; color:var(--mt); margin-bottom:20px;">'+(isPending ? 'طلبكم قيد المراجعة. سيتم تفعيل النظام فور موافقة الإدارة.' : 'يرجى إدخال بيانات المنشأة لإرسال طلب التفعيل للإدارة.')+'</p><div class="fg"><input type="text" id="tenant-name-input" placeholder="اسم المنشأة" value="'+(d.name||'')+'" '+(isPending?'disabled':'')+'></div><div class="fg"><input type="email" id="tenant-email-input" placeholder="البريد الإلكتروني" value="'+(d.email||'')+'" '+(isPending?'disabled':'')+' style="direction:ltr; text-align:right;"></div><div class="fg"><input type="text" id="tenant-phone-input" placeholder="رقم الهاتف" value="'+(d.phone||'')+'" '+(isPending?'disabled':'')+' style="direction:ltr; text-align:right;"></div>'+(isPending ? '<button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="location.reload()">🔄 تحديث حالة التفعيل</button>' : '<button class="btn btn-g" style="width:100%; margin-top:10px;" onclick="sendTenantActivationRequest()">📤 إرسال طلب التفعيل</button>')+'</div>'; document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('login-box').innerHTML = h; }
 async function sendTenantActivationRequest() { var name = document.getElementById('tenant-name-input').value; var email = document.getElementById('tenant-email-input').value; var phone = document.getElementById('tenant-phone-input').value; if(!name || !phone) { toast('أدخل اسم المنشأة ورقم الهاتف', 'e'); return; } var tentId = 'NUR-' + Math.floor(Math.random() * 9000 + 1000); toast('⏳ جاري إرسال الطلب...', 's'); try { var docRef = db.collection("system_control").doc("all_tenants"); var doc = await docRef.get(); var arr = (doc.exists && doc.data().list) ? doc.data().list : []; var tenantData = { id: tentId, name: name, email: email, phone: phone, status: 'pending', type: 'nursery' }; arr.push(tenantData); await docRef.set({ list: arr }, { merge: true }); var smsBody = "مرحباً، أود تفعيل نظام ELEN SOFT لمنشأتي. رمز المنشأة: " + tentId + " - الاسم: " + name; var smsLink = "sms:" + OWNER_PHONE + "?body=" + encodeURIComponent(smsBody); window.open(smsLink, '_blank'); _nurseryId = tentId; localStorage.setItem('nr_tenant_id', _nurseryId); toast('✅ تم تسجيل طلبك، يرجى إرسال الرسالة للمالك عبر تطبيق الرسائل', 's'); setTimeout(function(){ showTenantRequestScreen(tenantData); }, 1000); } catch(e) { toast('خطأ في إرسال الطلب', 'e'); } }
 function selectLoginUser(idx){_loginSelUser=idx;document.getElementById('login-pass-area').style.display='block';document.getElementById('login-pass').value='';document.getElementById('login-pass').focus()} 
