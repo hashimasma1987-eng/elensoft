@@ -1129,6 +1129,62 @@ function closeShift() {
     printZReport(); // طباعة تقرير الإقفال
     toast('✅ تم إقفال الوردية بنجاح', 's');
 }
+function rShifts() {
+    var h = getPrintHeaderHtml('إدارة الورديات') + '<div class="toolbar no-print">';
+    if(!_activeShift) {
+        h += '<button class="btn btn-g" onclick="openShift()">🔓 فتح وردية جديدة</button>';
+    } else {
+        h += '<button class="btn btn-d" onclick="closeShift()">🔒 إقفال الوردية الحالية</button>';
+    }
+    h += '</div>';
+    
+    if(_activeShift) {
+        h += '<div class="card" style="background:var(--gnl); border:1px solid var(--gn); margin-bottom:15px;">';
+        h += '<h4 style="color:var(--gn); margin-bottom:10px;">✅ الوردية الحالية مفتوحة</h4>';
+        h += '<div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:12px;">';
+        h += '<div>المستخدم: <b>'+H(_activeShift.user)+'</b></div>';
+        h += '<div>وقت البدء: <b>'+new Date(_activeShift.startTime).toLocaleString('ar-EG')+'</b></div>';
+        h += '</div></div>';
+    } else {
+        h += '<div class="card"><div class="empty">لا توجد وردية مفتوحة حالياً. يرجى فتح وردية لبدء التسجيل.</div></div>';
+    }
+    
+    // عرض سجل الورديات السابقة
+    h += '<div class="card"><h4>سجل الورديات</h4><div class="tbl-wrap"><table><thead><tr><th>رقم</th><th>المستخدم</th><th>البداية</th><th>النهاية</th></tr></thead><tbody>';
+    var shifts = D.shifts || [];
+    if(shifts.length === 0) h += '<tr><td colspan="4"><div class="empty">لا توجد ورديات سابقة</div></td></tr>';
+    shifts.slice().reverse().forEach(function(s) {
+        h += '<tr><td>#'+s.id+'</td><td>'+H(s.user)+'</td><td>'+new Date(s.startTime).toLocaleString('ar-EG')+'</td><td>'+(s.endTime?new Date(s.endTime).toLocaleString('ar-EG'):'-')+'</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+    return h;
+}
+
+function openShift() {
+    if(_activeShift) { toast('⚠️ هناك وردية مفتوحة بالفعل', 'e'); return; }
+    _activeShift = {
+        id: uid(),
+        user: currentUser ? currentUser.username : 'نظام',
+        startTime: new Date().toISOString()
+    };
+    localStorage.setItem('nr_active_shift', JSON.stringify(_activeShift));
+    render();
+    toast('✅ تم فتح الوردية بنجاح', 's');
+}
+
+function closeShift() {
+    if(!_activeShift) return;
+    if(!confirm('هل تريد إقفال الوردية الحالية وطباعة التقرير؟')) return;
+    _activeShift.endTime = new Date().toISOString();
+    if(!D.shifts) D.shifts = [];
+    D.shifts.push(_activeShift);
+    saveD('shifts');
+    localStorage.removeItem('nr_active_shift');
+    _activeShift = null;
+    render();
+    printZReport(); // طباعة تقرير الإقفال
+    toast('✅ تم إقفال الوردية بنجاح', 's');
+}
 
 // 2. شاشة أداء البائعين (Salesmen)
 function rSalesmen() {
@@ -1141,8 +1197,7 @@ function rSalesmen() {
     });
     
     var arr = Object.keys(stats).map(function(k){ return {name: k, count: stats[k].count, total: stats[k].total}; });
-    arr.sort(function(a,b){ return b.total - a.total; });
-    
+    arr.sort(function(a,b){ return b.total - a.total; });    
     var h = getPrintHeaderHtml('تقرير أداء البائعين') + '<div class="card"><div class="tbl-wrap"><table><thead><tr><th>البائع</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>متوسط الفاتورة</th></tr></thead><tbody>';
     if(arr.length === 0) h += '<tr><td colspan="4"><div class="empty">لا توجد مبيعات مسجلة</div></td></tr>';
     arr.forEach(function(s) {
@@ -1271,7 +1326,6 @@ document.addEventListener('keydown', function(e) {
     } 
 });
 </script>
-
 <!-- زر تثبيت التطبيق (PWA) -->
 <button id="pwa-install-btn" style="position:fixed; bottom:140px; left:20px; z-index:9999; display:none; background:linear-gradient(135deg, var(--ac), #a0442c); color:#fff; border:none; padding:12px 18px; border-radius:30px; font-size:12px; font-weight:700; box-shadow:0 4px 15px rgba(196,93,62,0.4); cursor:pointer; align-items:center; gap:6px;">📲 تثبيت التطبيق</button>
 
