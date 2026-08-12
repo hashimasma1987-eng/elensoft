@@ -91,7 +91,7 @@ async function checkLogin() {
         try {
             var doc = await db.collection("system_control").doc("owner_config").get();
             if (doc.exists && doc.data().password) {
-                localStorage.setItem('nr_owner_session', 'active');
+                localStorage.setItem('nr_owner_session', 'active'); localStorage.setItem('elen_owner_done', '1');
                 renderAdmin();
             } else {
                 showOwnerPasswordSetup();
@@ -128,7 +128,7 @@ async function saveOwnerConfig() {
     try {
         var user = firebase.auth().currentUser;
         await db.collection("system_control").doc("owner_config").set({ email: OWNER_EMAIL, password: pass, owner_uid: user ? user.uid : 'unknown' });
-        localStorage.setItem('nr_owner_session', 'active');
+        localStorage.setItem('nr_owner_session', 'active'); localStorage.setItem('elen_owner_done', '1');
         document.getElementById('login-overlay').style.display = 'none';
         renderAdmin();
         toast('✅ تم التثبيت بنجاح', 's');

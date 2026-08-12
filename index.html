@@ -66,15 +66,25 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
         b.addEventListener('copy',function(e){e.preventDefault()});
         b.addEventListener('touchstart',function(){} ,{passive:true});
     });
-    // إخفاء الزر الأحمر (دخول 2) نهائيًا بعد أول تثبيت للمنشأة
-    // يتم وضع علامة 'installed' في localStorage عند تثبيت النظام لأول مرة من tenant.html
-    if(localStorage.getItem('elen_installed')){
+    var installed = localStorage.getItem('elen_installed');
+    var ownerDone = localStorage.getItem('elen_owner_done');
+    if(installed && !ownerDone){
+        // المستأجر أدخل أول مرة: تتخطى هذه الصفحة وتظهر إعدادات المستخدم مباشرة
+        window.location.replace('tenant.html');
+    }
+    // زر المالك: يظهر مرة واحدة فقط عند أول تثبيت/دخول ثم يختفي نهائيًا
+    if(installed && ownerDone){
+        // المالك دخل سابقًا: تختفي كل الأزرار
+        document.getElementById('btn2').style.display='none';
+        document.getElementById('btn1').style.display='none';
+        document.getElementById('note').innerHTML='تم تثبيت النظام على هذا الجهاز';
+    } else if(installed && !ownerDone){
+        // أول زيارة بعد التثبيت: يظهر زر المالك (دخول 1) مرة واحدة فقط
         document.getElementById('btn2').style.display='none';
         document.getElementById('btn1').style.display='flex';
-        document.getElementById('note').innerHTML='تم تثبيت النظام';
-    }
-    // إظهار زر المالك فقط إذا تم تثبيت النظام (لا معنى له قبله)
-    else{
+        document.getElementById('note').innerHTML='لمرة واحدة فقط: ادخل من الزر الأخضر (1)';
+    } else {
+        // لم يثبت النظام بعد: يظهر دخول 2 فقط
         document.getElementById('btn1').style.display='none';
         document.getElementById('note').innerHTML='بعد تثبيت النظام سيظهر دخول 1';
     }

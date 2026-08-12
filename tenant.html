@@ -432,8 +432,13 @@ async function verifyActivationCode() {
         var localUsers = getUsers();
         localUsers.push({id: uid(), username: data.email, password: data.passwordHash, role: 'مدير نظام'});
         saveUsers(localUsers);
-        toast('🎉 تم تفعيل حسابك بنجاح! يرجى تسجيل الدخول الآن', 's');
-        showLoginView('login');
+        currentUser = { username: data.email, role: 'مدير نظام', password: data.passwordHash };
+        currentRole = 'مدير نظام';
+        localStorage.setItem('elen_first_user_done', '1');
+        document.getElementById('login-overlay').classList.add('hidden');
+        toast('🎉 تم تفعيل حسابك بنجاح!', 's');
+        initApp();
+        setTimeout(function(){ openSettings(); }, 600);
     } catch(e) { toast('❌ خطأ أثناء التفعيل', 'e'); }
 }
 async function tenantSecureLogin() {
@@ -476,6 +481,7 @@ async function checkLogin(){
                 localStorage.setItem('nr_nursery_name', d.nurseryName || d.name || '');
                 currentUser = { username: d.nurseryName || d.name || 'مدير', role: 'مدير نظام' };
                 currentRole = 'مدير نظام';
+                localStorage.setItem('elen_installed', '1');
                 document.getElementById('login-overlay').classList.add('hidden');
                 // مسح المعلمة من الرابط دون إعادة تحميل عبر history
                 try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
@@ -493,6 +499,7 @@ async function checkLogin(){
             if(doc.exists && doc.data().status === 'active') {
                 currentUser = { username: savedName || 'مدير', role: 'مدير نظام' };
                 currentRole = 'مدير نظام';
+                localStorage.setItem('elen_installed', '1');
                 document.getElementById('login-overlay').classList.add('hidden');
                 initApp();
                 return;
