@@ -215,7 +215,7 @@ async function loadActivationRequests() {
         var reqs = [];
         snap.forEach(function(d) {
             var dd = d.data();
-            if(dd && dd.status === 'pending') reqs.push(dd);
+            if(dd && (dd.status === 'pending' || dd.status === 'approved' || dd.status === 'awaiting_password')) reqs.push(dd);
         });
         reqs.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
         window._pendingReqs = reqs;
@@ -225,14 +225,15 @@ async function loadActivationRequests() {
             var d = new Date(r.createdAt);
             var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()) : '-';
             var isApproved = r.status === 'approved';
-            pH += '<tr>';
+            var isWaiting = (r.status === 'approved' || r.status === 'awaiting_password');
+            pH += '<tr' + (isWaiting ? ' style="background:rgba(46,125,50,0.07)"' : '') + '>';
             pH += '<td>'+H(r.name||'-')+'</td>';
             pH += '<td dir="ltr">'+H(r.email||'-')+'</td>';
             pH += '<td dir="ltr">'+H(r.phone||'-')+'</td>';
-            pH += '<td dir="ltr"><b>'+(isApproved ? H(r.activationCode||'-') : H(r.id))+'</b></td>';
+            pH += '<td dir="ltr"><span id="ac-code-'+H(r.id)+'"><b>'+(isApproved ? H(r.activationCode||'-') : H(r.id))+'</b></span>'+(isApproved ? ' <button class="btn btn-o" style="font-size:9px;padding:3px 7px" onclick="toggleShowCode(\''+H(r.id)+'\',\''+H(r.activationCode||'')+'\')">👁</button>' : '')+'</td>';
             pH += '<td>'+ds+'</td>';
             if(isApproved) {
-                pH += '<td><span style="color:var(--gnd);font-size:11px">✅ مفعل</span><br><button class="btn btn-g" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="sendCodeToClient(\''+r.id+'\')">📩 إرسال الرمز للعميل</button></td>';
+                                pH += '<td><span style="color:var(--gnd);font-size:11px">✅ وافق المالك (في انتظار دخول العميل)</span><br><button class="btn btn-g" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="sendCodeToClient(\''+r.id+'\')">📩 إرسال الرمز للعميل</button> <button class="btn btn-o" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="copyActCodeDirect(\''+r.id+'\')">📋 نسخ الرمز</button></td>';
             } else {
                 pH += '<td><button class="btn btn-g" onclick="approveNewTenant(\''+r.id+'\')">✅ موافقة</button> <button class="btn btn-d" onclick="rejectNewTenant(\''+r.id+'\')">❌ رفض</button></td>';
             }
@@ -269,7 +270,15 @@ async function approveNewTenant(id) {
             await db.collection("system_control").doc("all_tenants").set({ list: _tArr }, { merge: true });
         }
         toast('✅ تمت الموافقة - أرسل رمز التفعيل ' + activationCode + ' إلى العميل برسالة نصية', 's', 6000);
-        loadTenants();
+        await loadTenants();
+        var actMsg = 'رمز تفعيل نظام ELEN SOFT المحاسبي\u000A' + data.name + '\u000Aالرمز: ' + activationCode + '\u000Aأدخل الرمز في شاشة التفعيل بالنظام';
+        var actPhoneDisp = '+' + (data.phone || '');
+        var actH = '<div style="font-size:12px;color:var(--fg);text-align:right">تمت الموافقة على المنشأة <b>'+H(data.name)+'</b>. أرسل هذا الرمز إلى العميل برسالة نصية:<br><b dir="ltr" style="font-size:20px;color:var(--gnd);display:inline-block;margin:8px 0">'+activationCode+'</b></div>';
+        actH += '<div style="background:#FFF9E6;border:1px solid #E6B800;border-radius:10px;padding:10px;margin:10px 0;font-size:11px;color:#7A5C00;white-space:pre-wrap;text-align:right">'+actMsg+'</div>';
+        actH += '<button class="btn btn-g" style="width:100%" onclick="window.location.href=\u0027sms:'+actPhoneDisp+'?body='+encodeURIComponent(actMsg)+'\u0027">📲 فتح الرسائل وإرسال الرمز</button>';
+        actH += '<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="copyActCode(\u0027'+actMsg+'\u0027)">📋 نسخ نص الرسالة</button>';
+        actH += '<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="copyActCode(\u0027'+activationCode+'\u0027)">📋 نسخ الرمز فقط</button>';
+        openModal('✅ رمز التفعيل', actH);
     } catch(e) { toast('خطأ في الموافقة', 'e'); }
 }
 async function rejectNewTenant(id) {
