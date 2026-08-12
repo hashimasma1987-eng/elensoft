@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم مالك النظام - ELEN SOFT</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#F0EDE6;--card:#fff;--hd:#162B1E;--fg:#1A2E1A;--fg2:#3D5A3D;--mt:#8A9A8A;--ac:#C45D3E;--gn:#2D6B45;--gnl:#E8F5EC;--gnd:#162B1E;--bd:#D8D2C8;--dn:#B83226;--sh:0 1px 3px rgba(22,43,30,.08)}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;display:flex;flex-direction:column}
+.top-bar{background:var(--hd);padding:15px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo-text{color:#fff;font-weight:800;font-size:18px}
+.content{flex:1;padding:20px;max-width:1200px;margin:0 auto;width:100%}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;box-shadow:var(--sh);margin-bottom:20px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px}
+.kpi-card{background:var(--card);border-radius:14px;padding:15px;border:1px solid var(--bd);display:flex;align-items:center;gap:15px}
+.kpi-icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.kpi-val{font-size:24px;font-weight:900;line-height:1.2}
+.kpi-lbl{font-size:12px;color:var(--mt);font-weight:700}
+h3{color:var(--gnd);margin-bottom:15px;font-size:18px}
+h4{font-size:14px;color:var(--gnd);margin-bottom:12px}
+.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--bd)}
+table{width:100%;border-collapse:collapse;min-width:600px}
+thead{background:var(--gnd);color:#fff}
+th{padding:10px;font-size:12px;text-align:right}
+td{padding:10px;font-size:12px;border-bottom:1px solid var(--bd);text-align:right}
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:5px}
+.btn-g{background:var(--gn)}.btn-d{background:var(--dn)}.btn-o{background:var(--card);border:1px solid var(--bd);color:var(--fg2)}
+.empty{text-align:center;padding:30px;color:var(--mt)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999}
+.overlay.open{display:flex}
+.modal-box{background:var(--card);border-radius:18px;width:100%;max-width:500px;padding:25px;max-height:90vh;overflow-y:auto}
+.fg{margin-bottom:15px}.fg label{display:block;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--fg2)}
+.fg input,.fg select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:13px}
+.login-overlay{position:fixed;inset:0;background:var(--hd);display:flex;align-items:center;justify-content:center;z-index:9999}
+.login-box{background:var(--card);border-radius:20px;padding:30px;width:100%;max-width:400px;text-align:center}
+.toast-wrap{position:fixed;top:20px;left:20px;z-index:9998;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 16px;border-radius:8px;color:#fff;font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.toast-s{background:var(--gn)}.toast-e{background:var(--dn)}
+</style>
+</head>
+<body>
+<div class="top-bar"><div class="logo-text">👑 لوحة تحكم مالك النظام</div><button class="btn btn-d" onclick="doLogout()">🚪 خروج</button></div>
+<div class="content" id="admin-content"><div class="empty">⏳ جاري التحميل...</div></div>
+<div class="overlay" id="modal"><div class="modal-box"><h3 id="m-title" style="margin-bottom:20px"></h3><div id="m-body"></div><div style="text-align:left;margin-top:20px"><button class="btn btn-g" onclick="saveTenant()">💾 حفظ</button> <button class="btn btn-o" onclick="closeM()">إلغاء</button></div></div></div>
+<div class="toast-wrap" id="tst-b"></div>
+<div class="login-overlay" id="login-overlay"><div class="login-box" id="login-box"></div></div>
+
+<script>
+var OWNER_EMAIL = "enghashim662007@gmail.com"; 
+var OWNER_PHONE = "967770012528"; 
+var db = null;
+
+function initFirebase() {
+    return new Promise(function(resolve) {
+        if (typeof firebase !== 'undefined' && firebase.initializeApp) {
+            try {
+                var firebaseConfig = { apiKey: "AIzaSyDKWp5k6gnf7bF0Mlyz8lebeW6_j2mVQmQ", authDomain: "nursery-erp-63713.firebaseapp.com", projectId: "nursery-erp-63713", storageBucket: "nursery-erp-63713.firebasestorage.app", messagingSenderId: "804355879833", appId: "1:804355879833:web:bcb2a9c047d28069231908" };
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                firebase.auth().onAuthStateChanged(function(user) {
+                    if (user) { resolve(); } else { firebase.auth().signInAnonymously().then(function() { resolve(); }).catch(function(error) { resolve(); }); }
+                });
+            } catch(e) { resolve(); }
+        } else { setTimeout(function() { initFirebase().then(resolve); }, 300); }
+    });
+}
+
+function toast(msg,type){var d=document.createElement('div');d.className='toast toast-'+(type||'s');d.textContent=msg;document.getElementById('tst-b').appendChild(d);setTimeout(function(){d.remove()},3000)}
+
+async function checkLogin() {
+    await initFirebase();
+    var isOwnerSession = localStorage.getItem('nr_owner_session') === 'active';
+    if (isOwnerSession) {
+        try {
+            var doc = await db.collection("system_control").doc("owner_config").get();
+            if (doc.exists && doc.data().password) { renderAdmin(); return; }
+        } catch(e) {}
+    }
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('verify') === 'owner') {
+        try {
+            var doc = await db.collection("system_control").doc("owner_config").get();
+            if (doc.exists && doc.data().password) {
+                localStorage.setItem('nr_owner_session', 'active');
+                renderAdmin();
+            } else {
+                showOwnerPasswordSetup();
+            }
+            return;
+        } catch(e) { toast('خطأ في الاتصال', 'e'); }
+    }
+    showOwnerSetupScreen();
+}
+
+function showOwnerSetupScreen() {
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('login-box').innerHTML = '<h2 style="margin-bottom:20px">👑 تثبيت النظام</h2><p style="font-size:13px;margin-bottom:20px;color:var(--mt)">سيتم إرسال طلب الموافقة إلى بريد المالك.</p><input type="email" value="'+OWNER_EMAIL+'" readonly style="width:100%;padding:10px;margin-bottom:15px;text-align:center;background:#f0f0f0"><button class="btn btn-g" style="width:100%" onclick="sendOwnerApprovalEmail()">📤 إرسال طلب الموافقة</button>';
+}
+
+function sendOwnerApprovalEmail() {
+    var subject = "الموافقة على تثبيت نظام ELEN SOFT كمالك";
+    var body = "اضغط على الرابط التالي:\n\n" + window.location.origin + window.location.pathname + "?verify=owner";
+    window.open("mailto:" + OWNER_EMAIL + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), '_blank');
+}
+
+function showOwnerPasswordSetup() {
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('login-box').innerHTML = '<h2 style="margin-bottom:20px">✅ تأكيد التثبيت</h2><input type="password" id="owner-pass-input" placeholder="كلمة مرور المالك" style="width:100%;padding:10px;margin-bottom:15px;text-align:center"><button class="btn btn-g" style="width:100%" onclick="saveOwnerConfig()">💾 حفظ وتثبيت</button>';
+}
+
+async function saveOwnerConfig() {
+    var pass = document.getElementById('owner-pass-input').value;
+    if(!pass) { toast('أدخل كلمة المرور', 'e'); return; }
+    try {
+        var user = firebase.auth().currentUser;
+        await db.collection("system_control").doc("owner_config").set({ email: OWNER_EMAIL, password: pass, owner_uid: user ? user.uid : 'unknown' });
+        localStorage.setItem('nr_owner_session', 'active');
+        document.getElementById('login-overlay').style.display = 'none';
+        renderAdmin();
+        toast('✅ تم التثبيت بنجاح', 's');
+    } catch(e) { toast('خطأ', 'e'); }
+}
+
+function doLogout() {
+    localStorage.removeItem('nr_owner_session');
+    location.reload();
+}
+
+async function renderAdmin() {
+    document.getElementById('login-overlay').style.display = 'none';
+    var h = '<div class="kpi-grid"><div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">🏢</div><div><div class="kpi-val" id="kpi-total">-</div><div class="kpi-lbl">منشآت مفعلة</div></div></div><div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">⏳</div><div><div class="kpi-val" id="kpi-pending">-</div><div class="kpi-lbl">طلبات معلقة</div></div></div></div>';
+    h += '<div class="card"><h3>⏳ طلبات التفعيل المعلقة</h3><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الهاتف</th><th>الرمز</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="4"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>إجراء</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    document.getElementById('admin-content').innerHTML = h;
+    loadTenants();
+}
+
+async function loadTenants() {
+    try {
+        var doc = await db.collection("system_control").doc("all_tenants").get();
+        var arr = (doc.exists && doc.data().list) ? doc.data().list : [];
+        window.tenantsCache = arr;
+        var today = new Date().toISOString().split('T')[0];
+        var active = arr.filter(t => t.status === 'active');
+        var pending = arr.filter(t => t.status === 'pending');
+        document.getElementById('kpi-total').innerText = active.length;
+        document.getElementById('kpi-pending').innerText = pending.length;
+        
+        var pH = '';
+        if(pending.length === 0) pH = '<tr><td colspan="4"><div class="empty">لا يوجد طلبات</div></td></tr>';
+        pending.forEach(t => { pH += '<tr><td>'+t.name+'</td><td>'+t.phone+'</td><td>'+t.id+'</td><td><button class="btn btn-g" onclick="approveTenant(\''+t.id+'\')">✅ تفعيل</button></td></tr>'; });
+        document.getElementById('pending-tbody').innerHTML = pH;
+
+        var aH = '';
+        if(active.length === 0) aH = '<tr><td colspan="5"><div class="empty">لا توجد منشآت مفعلة</div></td></tr>';
+        active.forEach(t => {
+            var exp = t.renewalDate && t.renewalDate < today;
+            aH += '<tr><td>'+t.name+'</td><td>'+t.id+'</td><td>'+(t.type||'nursery')+'</td><td>'+(t.renewalDate||'-')+'</td><td><button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button></td></tr>';
+        });
+        document.getElementById('active-tbody').innerHTML = aH;
+    } catch(e) { toast('خطأ في تحميل البيانات', 'e'); }
+}
+
+function showTenantModal(id) {
+    var t = id ? window.tenantsCache.find(x => x.id === id) : {};
+    var h = '<div class="fg"><label>اسم المنشأة</label><input id="t-name" value="'+(t.name||'')+'"></div>';
+    h += '<div class="fg"><label>رمز المنشأة (إنجليزي بدون مسافات)</label><input id="t-code" value="'+(t.id?t.id.replace('NUR-',''):'')+'" '+(id?'disabled':'')+'></div>';
+    h += '<div class="fg"><label>نوع النشاط</label><select id="t-type"><option value="nursery" '+(t.type==='nursery'?'selected':'')+'>🌱 مشتل</option><option value="factory" '+(t.type==='factory'?'selected':'')+'>🏭 مصنع</option><option value="retail" '+(t.type==='retail'?'selected':'')+'>🛒 تجارة</option><option value="restaurant" '+(t.type==='restaurant'?'selected':'')+'>🍽️ مطعم</option></select></div>';
+    h += '<div class="fg"><label>تاريخ تجديد الاشتراك</label><input type="date" id="t-renewal" value="'+(t.renewalDate||'')+'"></div>';
+    document.getElementById('m-title').innerText = id ? 'تعديل منشأة' : 'إضافة منشأة';
+    document.getElementById('m-body').innerHTML = h;
+    document.getElementById('modal').classList.add('open');
+}
+
+function closeM() { document.getElementById('modal').classList.remove('open'); }
+
+async function saveTenant() {
+    var name = document.getElementById('t-name').value;
+    var code = document.getElementById('t-code').value;
+    if(!name || !code) { toast('أدخل الاسم والرمز', 'e'); return; }
+    var id = 'NUR-' + code.trim().toUpperCase();
+    var newT = { id: id, name: name, type: document.getElementById('t-type').value, renewalDate: document.getElementById('t-renewal').value, status: 'active' };
+    try {
+        var docRef = db.collection("system_control").doc("all_tenants");
+        var doc = await docRef.get();
+        var arr = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var idx = arr.findIndex(x => x.id === id);
+        if(idx > -1) arr[idx] = newT; else arr.push(newT);
+        await docRef.set({ list: arr }, { merge: true });
+        toast('✅ تم الحفظ', 's');
+        closeM();
+        loadTenants();
+    } catch(e) { toast('خطأ في الحفظ', 'e'); }
+}
+
+async function approveTenant(id) {
+    try {
+        var docRef = db.collection("system_control").doc("all_tenants");
+        var doc = await docRef.get();
+        var arr = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var idx = arr.findIndex(x => x.id === id);
+        if(idx > -1) {
+            arr[idx].status = 'active';
+            arr[idx].renewalDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+            await docRef.set({ list: arr }, { merge: true });
+            toast('✅ تم تفعيل المنشأة', 's');
+            loadTenants();
+        }
+    } catch(e) { toast('خطأ', 'e'); }
+}
+
+checkLogin();
+</script>
+</body>
+</html>
