@@ -52,7 +52,8 @@ td{padding:10px;font-size:12px;border-bottom:1px solid var(--bd);text-align:righ
 <div class="toast-wrap" id="tst-b"></div>
 <div class="login-overlay" id="login-overlay"><div class="login-box" id="login-box"></div></div>
 
-<script>
+<script>    var BIZ_LABELS={'nursery':'🌱 مشتل','factory':'🏭 مصنع','retail':'🛒 تجارة','restaurant':'🍽️ مطعم','medical':'⚕️ عيادة','services':'🛠️ خدمات'};
+
 var OWNER_EMAIL = "enghashim662007@gmail.com"; 
 var OWNER_PHONE = "967770012528"; 
 // رابط صفحة المستأجرين (ملف منفصل في نفس المجلد)
@@ -165,8 +166,8 @@ function doLogout() {
 async function renderAdmin() {
     document.getElementById('login-overlay').style.display = 'none';
     var h = '<div class="kpi-grid"><div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">🏢</div><div><div class="kpi-val" id="kpi-total">-</div><div class="kpi-lbl">منشآت مفعلة</div></div></div><div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">⏳</div><div><div class="kpi-val" id="kpi-pending">-</div><div class="kpi-lbl">طلبات معلقة</div></div></div></div>';
-    h += '<div class="card"><h3>📩 طلبات التفعيل الجديدة (رسائل SMS الواردة من العملاء)</h3><div style="font-size:11px;color:var(--mt);margin-bottom:10px">تصل عبر الرسائل النصية على هاتفك. بعد الموافقة يستطيع العميل تعيين كلمة السر والدخول.</div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>البريد</th><th>الهاتف</th><th>الرمز</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="6"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
-    h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;background:var(--gnl);border:1px solid var(--gn);border-radius:12px;padding:12px 16px"><span style="font-size:12px;font-weight:700">💬 زر التواصل مع الشركة في صفحة المستأجرين:</span><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="support-toggle" onchange="toggleSupportBtn(this.checked)" style="width:18px;height:18px"><span id="support-toggle-lbl" style="font-size:12px;font-weight:700">جاري التحميل...</span></label></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>إجراء</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>📩 طلبات التفعيل الجديدة (رسائل SMS الواردة من العملاء)</h3><div style="font-size:11px;color:var(--mt);margin-bottom:10px">تصل عبر الرسائل النصية على هاتفك. بعد الموافقة يستطيع العميل تعيين كلمة السر والدخول.</div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>البريد</th><th>الهاتف</th><th>الرمز</th><th>النشاط</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="6"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;background:var(--gnl);border:1px solid var(--gn);border-radius:12px;padding:12px 16px"><span style="font-size:12px;font-weight:700">💬 زر التواصل مع الشركة في صفحة المستأجرين:</span><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="support-toggle" onchange="toggleSupportBtn(this.checked)" style="width:18px;height:18px"><span id="support-toggle-lbl" style="font-size:12px;font-weight:700">جاري التحميل...</span></label></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     h += '<div class="card"><h3>💬 طلبات التواصل والتوثيق (من المستأجرين)</h3><div class="tbl-wrap"><table><thead><tr><th>رقم الطلب</th><th>المنشأة</th><th>الرمز</th><th>البريد</th><th>الهاتف</th><th>الموضوع</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="support-tbody"><tr><td colspan="9"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     document.getElementById('admin-content').innerHTML = h;
     loadTenants();
@@ -198,10 +199,12 @@ async function loadTenants() {
         pending.forEach(t => { pH += '<tr><td>'+t.name+'</td><td>'+t.phone+'</td><td>'+t.id+'</td><td><button class="btn btn-g" onclick="approveTenant(\''+t.id+'\')">✅ تفعيل</button></td></tr>'; });
         document.getElementById('pending-tbody').innerHTML = pH;
         var aH = '';
-        if(active.length === 0) aH = '<tr><td colspan="5"><div class="empty">لا توجد منشآت مفعلة</div></td></tr>';
+        if(active.length === 0) aH = '<tr><td colspan="6"><div class="empty">لا توجد منشآت مفعلة</div></td></tr>';
         active.forEach(t => {
             var exp = t.renewalDate && t.renewalDate < today;
-            aH += '<tr><td>'+t.name+'</td><td>'+t.id+'</td><td>'+(t.type||'nursery')+'</td><td>'+(t.renewalDate||'-')+'</td><td><button class="btn btn-g" onclick="openTenantFor(\''+t.id+'\')">🖥️ دخول</button> <button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button> <button class="btn btn-o" onclick="openFeatsModal(\''+t.id+'\')" title="تفعيل وإيقاف الميزات">⚙️ ميزات</button></td></tr>';
+                        var tSt = t.status || 'active';
+            var tStLbl = tSt === 'awaiting_password' ? '<span style="color:var(--warn);font-size:10px">⏳ بانتظار تعيين كلمة السر</span>' : '<span style="color:var(--gn);font-size:10px">✅ مفعلة</span>';
+            aH += '<tr><td><b>'+t.name+'</b></td><td dir="ltr" style="font-size:10px">'+t.id+'</td><td>'+(BIZ_LABELS[t.type]||'منشأة')+'</td><td>'+(t.renewalDate||'-')+'</td><td>'+tStLbl+'</td><td><button class="btn btn-g" style="border:2px solid var(--gn)" onclick="openFeatsModal(\''+t.id+'\')" title="تفعيل وإيقاف ميزات هذه المنشأة">⚙️ إدارة الميزات</button> <button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button> <button class="btn btn-o" onclick="if(confirm(\'سيتم فتح صفحة المنشأة كشاهد - لن تتمكن من تعديل البيانات من هذا الدخول\'))openTenantFor(\''+t.id+'\')">🖥️ دخول كشاهد</button></td></tr>';;
         });
         document.getElementById('active-tbody').innerHTML = aH;
         loadSupportRequests();
@@ -220,7 +223,7 @@ async function loadActivationRequests() {
         reqs.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
         window._pendingReqs = reqs;
         var pH = '';
-        if(reqs.length === 0) pH = '<tr><td colspan="6"><div class="empty">لا توجد طلبات تفعيل جديدة - الطلبات تظهر هنا بعد إرسال العميل رسالة SMS</div></td></tr>';
+        if(reqs.length === 0) pH = '<tr><td colspan="7"><div class="empty">لا توجد طلبات تفعيل جديدة - الطلبات تظهر هنا بعد إرسال العميل رسالة SMS</div></td></tr>';
         reqs.forEach(function(r) {
             var d = new Date(r.createdAt);
             var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()) : '-';
@@ -231,6 +234,7 @@ async function loadActivationRequests() {
             pH += '<td dir="ltr">'+H(r.email||'-')+'</td>';
             pH += '<td dir="ltr">'+H(r.phone||'-')+'</td>';
             pH += '<td dir="ltr"><span id="ac-code-'+H(r.id)+'"><b>'+(isApproved ? H(r.activationCode||'-') : H(r.id))+'</b></span>'+(isApproved ? ' <button class="btn btn-o" style="font-size:9px;padding:3px 7px" onclick="toggleShowCode(\''+H(r.id)+'\',\''+H(r.activationCode||'')+'\')">👁</button>' : '')+'</td>';
+            pH += '<td>'+(BIZ_LABELS[r.businessType]||'-')+'</td>';
             pH += '<td>'+ds+'</td>';
             if(isApproved) {
                                 pH += '<td><span style="color:var(--gnd);font-size:11px">✅ وافق المالك (في انتظار دخول العميل)</span><br><button class="btn btn-g" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="sendCodeToClient(\''+r.id+'\')">📩 إرسال الرمز للعميل</button> <button class="btn btn-o" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="copyActCodeDirect(\''+r.id+'\')">📋 نسخ الرمز</button></td>';
@@ -242,7 +246,7 @@ async function loadActivationRequests() {
         document.getElementById('pending-tbody').innerHTML = pH;
         var kpiEl = document.getElementById('kpi-pending');
         if(kpiEl) kpiEl.innerText = (parseInt(kpiEl.innerText)||0) + reqs.length;
-    } catch(e) { if(document.getElementById('pending-tbody')) document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6"><div class="empty">خطأ في التحميل</div></td></tr>'; }
+    } catch(e) { if(document.getElementById('pending-tbody')) document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="7"><div class="empty">خطأ في التحميل</div></td></tr>'; }
 }
 function genActivationCode() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -278,6 +282,7 @@ async function approveNewTenant(id) {
         actH += '<button class="btn btn-g" style="width:100%" onclick="window.location.href=\u0027sms:'+actPhoneDisp+'?body='+encodeURIComponent(actMsg)+'\u0027">📲 فتح الرسائل وإرسال الرمز</button>';
         actH += '<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="copyActCode(\u0027'+actMsg+'\u0027)">📋 نسخ نص الرسالة</button>';
         actH += '<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="copyActCode(\u0027'+activationCode+'\u0027)">📋 نسخ الرمز فقط</button>';
+        actH += '<div style="margin-top:10px;padding:10px;border:1px solid var(--gn);border-radius:10px;background:var(--gnl);font-size:11px;text-align:right"><b>💡 كيف أتحكم بميزات هذه المنشأة؟</b><br>بعد دخول العميل، ستجد المنشأة في قسم <b>🏢 المنشآت المفعلة</b> (بالأعلى). اضغط زر <b>⚙️ إدارة الميزات</b> أمام اسمها لتفعيل أو إيقاف أي ميزة. التغيير يطبق فورًا عند دخول العميل ولا يحذف بياناته.</div>';
         openModal('✅ رمز التفعيل', actH);
     } catch(e) { toast('خطأ في الموافقة', 'e'); }
 }
@@ -294,7 +299,7 @@ async function sendCodeToClient(code) {
         if(!reqDoc.exists) { toast('الطلب غير موجود', 'e'); return; }
         var d = reqDoc.data();
         var actCode = d.activationCode || '';
-        var msg = 'رمز تفعيل نظام ELEN SOFT المحاسبي\\u000A' + d.name + '\\u000Aالرمز: ' + actCode + '\\u000Aأدخل الرمز في شاشة التفعيل بالبريد الإلكتروني المسجل';
+        var msg = 'رمز تفعيل نظام ELEN SOFT المحاسبي\\u000A' + d.name + '\\u000A' + ((BIZ_LABELS[d.businessType]||'') ? ('نوع النشاط: ' + BIZ_LABELS[d.businessType] + '\\u000A') : '') + 'الرمز: ' + actCode + '\\u000Aأدخل الرمز في شاشة التفعيل بالبريد الإلكتروني المسجل';
         var smsText = 'رمز تفعيل نظام ELEN SOFT المحاسبي\u000A' + d.name + '\u000Aالرمز: ' + actCode + '\u000Aأدخل الرمز في شاشة التفعيل بالبريد الإلكتروني المسجل';
         var phoneDisp = '+' + (d.phone || '');
         var h = '<div style="font-size:12px;color:var(--fg);text-align:right">أرسل هذا الرمز إلى العميل برسالة نصية:<br><b dir="ltr" style="font-size:16px;color:var(--gnd)">'+actCode+'</b></div>';
@@ -461,7 +466,10 @@ async function saveFeats(id) {
             var cb = document.querySelector('.feat-cb[data-key="' + f.key + '"]');
             feats[f.key] = cb ? cb.checked : true;
         });
-        await db.collection("tenants").doc(id).update({ features: feats });
+        try { await db.collection("tenants").doc(id).update({ features: feats }); } catch(e2) {
+            var ck = await db.collection("tenants").doc(id).get();
+            if(!ck.exists) { await db.collection("tenants").doc(id).set({ id: id, name: (window.tenantsCache.find(function(x){return x.id===id;})||{}).name||'', features: feats }, { merge: true }); } else { throw e2; }
+        }
         var docRef = db.collection("system_control").doc("all_tenants");
         var doc = await docRef.get();
         var arr = (doc.exists && doc.data().list) ? doc.data().list : [];

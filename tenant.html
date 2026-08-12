@@ -274,6 +274,9 @@ body[data-feat-page-search=off] .search-box{display:none!important}
             <div class="login-field"><label>اسم المنشأة</label><input type="text" id="reg-nursery-name" placeholder="مثال: مشتل التنمية"></div>
             <div class="login-field"><label>البريد الإلكتروني</label><input type="email" id="reg-email" placeholder="email@example.com" style="direction:ltr; text-align:right;"></div>
             <div class="login-field"><label>رقم التواصل</label><input type="tel" id="reg-phone" placeholder="967777123456" style="direction:ltr; text-align:right;"></div>
+            <div class="login-field"><label>نوع النشاط</label><select id="reg-biz-type" onchange="onRegBizTypeChange(this.value)" style="text-align:right;font-size:13px">
+<option value="nursery" selected>🌱 مشتل</option><option value="factory">🏭 مصنع</option><option value="retail">🛒 تجارة / بيع بالتجزئة</option><option value="restaurant">🍽️ مطعم</option><option value="medical">⚕️ عيادة / مركز طبي</option><option value="services">🛠️ مؤسسة خدمات</option></select></div>
+            <div id="reg-biz-preview" style="display:flex;align-items:center;gap:10px;background:#E8F5EC;border:1px solid var(--gn);border-radius:12px;padding:10px 12px;margin:8px 0;font-size:11px;color:#1E5C33"><span id="reg-biz-icon" style="font-size:22px">🌱</span><div><div id="reg-biz-title" style="font-weight:800">نظام إدارة المشاتل</div><div id="reg-biz-desc">سيتم ضبط شكل النظام وتسمياته تلقائياً حسب النشاط المختار</div></div></div>
             <button class="login-btn primary" onclick="submitTenantRegistration()">📤 طلب التفعيل</button>
             <div style="text-align:center; margin-top:15px; font-size:11px;">
                 <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
@@ -406,31 +409,50 @@ async function encryptPassword(pw) {
     return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 var _lastReqCode = null;
+var REG_BIZ = {
+'nursery':   {icon:'🌱', title:'نظام إدارة المشاتل',  desc:'تسميات: مشتلات، أصناف، زراعة، صوبات، عمليات زراعية', nameEx:'مثال: مشتل التنمية'},
+'factory':   {icon:'🏭', title:'نظام إدارة المصانع',  desc:'تسميات: مصنع، منتجات، مواد خام، خطوط إنتاج، تشغيل', nameEx:'مثال: مصنع الأمل'},
+'retail':    {icon:'🛒', title:'نظام إدارة المتاجر',  desc:'تسميات: متجر، أصناف، بضائع، أقسام، توريد ومبيعات', nameEx:'مثال: متجر السعادة'},
+'restaurant':{icon:'🍽️', title:'نظام إدارة المطاعم', desc:'تسميات: مطعم، أطباق، مكونات، مطابخ، تحضير ووجبات', nameEx:'مثال: مطعم البركة'},
+'medical':   {icon:'⚕️', title:'نظام إدارة العيادات', desc:'تسميات: عيادة، خدمات، مستلزمات، غرف فحص، جلسات', nameEx:'مثال: عيادة الشفاء'},
+'services':  {icon:'🛠️', title:'نظام إدارة الخدمات', desc:'تسميات: مؤسسة، خدمات، أدوات، مهام، تنفيذ ومخرجات', nameEx:'مثال: مؤسسة الإتقان'}
+};
+function onRegBizTypeChange(v){
+    var b = REG_BIZ[v] || REG_BIZ['nursery'];
+    var icon=document.getElementById('reg-biz-icon'); if(icon) icon.textContent=b.icon;
+    var t=document.getElementById('reg-biz-title'); if(t) t.textContent=b.title;
+    var d=document.getElementById('reg-biz-desc'); if(d) d.textContent='تسميات النظام: '+b.desc;
+    var nm=document.getElementById('reg-nursery-name'); if(nm) nm.placeholder=b.nameEx;
+    localStorage.setItem('nr_reg_biz_type', v);
+}
+(function(){var saved=localStorage.getItem('nr_reg_biz_type');if(saved && REG_BIZ[saved]){var s=document.getElementById('reg-biz-type');if(s){s.value=saved;onRegBizTypeChange(saved);}}else{onRegBizTypeChange('nursery');}})();
 async function submitTenantRegistration() {
     var name = document.getElementById('reg-nursery-name').value;
     var email = document.getElementById('reg-email').value;
     var phone = document.getElementById('reg-phone').value;
+    var bizType = (document.getElementById('reg-biz-type')||{value:'nursery'}).value || 'nursery';
+    localStorage.setItem('nr_reg_biz_type', bizType);
     if(!name || !email || !phone) { toast('يرجى ملء جميع الحقول', 'e'); return; }
     if(!/^\d{8,15}$/.test(phone)) { toast('رقم الهاتف غير صحيح (8-15 رقمًا)', 'e'); return; }
     var tempCode = 'TEN-' + Math.floor(1000 + Math.random() * 9000);
     try {
         await db.collection("tenants_requests").doc(tempCode).set({
-            id: tempCode, name: name, email: email, phone: phone,
+            id: tempCode, name: name, email: email, phone: phone, businessType: bizType,
             status: 'pending', createdAt: new Date().toISOString()
         });
         _lastReqCode = tempCode;
-        showSmsScreen(tempCode, name, email, phone);
+        showSmsScreen(tempCode, name, email, phone, bizType);
     } catch(e) { toast('❌ خطأ أثناء إرسال الطلب', 'e'); }
 }
 var _lastRegData = null;
-function showSmsScreen(code, name, email, phone) {
+function showSmsScreen(code, name, email, phone, bizType) {
     showLoginView('sms');
-    _lastRegData = { code: code, email: email, phone: phone };
-    var smsBody = 'طلب تفعيل نظام ELEN SOFT المحاسبي\u000Aاسم المنشأة: ' + name + '\u000Aالبريد الإلكتروني: ' + email + '\u000Aرقم التواصل: ' + phone;
+    _lastRegData = { code: code, email: email, phone: phone, bizType: bizType || 'nursery' };
+    var smsBody = 'طلب تفعيل نظام ELEN SOFT المحاسبي\u000Aاسم المنشأة: ' + name + '\u000Aنوع النشاط: ' + ({'nursery':'مشتل','factory':'مصنع','retail':'متجر','restaurant':'مطعم','medical':'عيادة','services':'مؤسسة خدمات'}[bizType] || 'منشأة') + '\u000Aالبريد الإلكتروني: ' + email + '\u000Aرقم التواصل: ' + phone;
     document.getElementById('sms-msg-text').value = smsBody;
     document.getElementById('sms-msg-box').textContent = smsBody;
     var OWNER_PHONE_DISP = '+967770012528';
-    document.getElementById('sms-owner-phone').textContent = OWNER_PHONE_DISP;
+    var pEl=document.getElementById('sms-owner-phone'); if(pEl) pEl.textContent = OWNER_PHONE_DISP;
     document.getElementById('sms-open-btn').onclick = function() { window.location.href = 'sms:' + OWNER_PHONE_DISP + '?body=' + encodeURIComponent(smsBody); };
     document.getElementById('sms-copy-btn').onclick = function() { copySmsText(smsBody); };
 }
@@ -498,6 +520,7 @@ async function saveNewPassword() {
         await c.reqRef.delete();
         localStorage.setItem('nr_tenant_id', c.cloudId);
         localStorage.setItem('nr_nursery_name', c.name);
+        localStorage.setItem('nr_business_type', c.type || 'nursery');
         localStorage.setItem('nr_username', username);
         localStorage.setItem('elen_installed', '1');
         localStorage.setItem('elen_first_run', '1');
