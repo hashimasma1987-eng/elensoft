@@ -52,8 +52,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
     </div>
     <div class="title">نظام ELEN SOFT المحاسبي</div>
     <div class="sub">منصة إدارة متكاملة - اختر نوع الدخول</div>
-    <a href="owner.html" class="btn btn-o" id="btn1" style="display:none"><span class="ic">1</span>دخول 1</a>
-    <a href="tenant.html" class="btn btn-t" id="btn2"><span class="ic">2</span>دخول 2</a>
+    <a href="tenant.html" class="btn btn-o" id="btn1" style="display:none"><span class="ic">1</span>دخول 1</a>
+    <a href="owner.html" class="btn btn-t" id="btn2"><span class="ic">2</span>دخول 2</a>
     <div class="note" id="note">ادخل من الزر الأخضر (1) أو الزر الأحمر (2)</div>
 <script>
 (function(){
@@ -69,24 +69,24 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
     var installed = localStorage.getItem('elen_installed');
     var ownerDone = localStorage.getItem('elen_owner_done');
     if(installed && !ownerDone){
-        // المستأجر أدخل أول مرة: تتخطى هذه الصفحة وتظهر إعدادات المستخدم مباشرة
+        // المستأجر ثبت النظام: تتخطى هذه الصفحة ويدخل النظام مباشرة
         window.location.replace('tenant.html');
     }
-    // زر المالك: يظهر مرة واحدة فقط عند أول تثبيت/دخول ثم يختفي نهائيًا
     if(installed && ownerDone){
-        // المالك دخل سابقًا: تختفي كل الأزرار
-        document.getElementById('btn2').style.display='none';
-        document.getElementById('btn1').style.display='none';
-        document.getElementById('note').innerHTML='تم تثبيت النظام على هذا الجهاز';
-    } else if(installed && !ownerDone){
-        // أول زيارة بعد التثبيت: يظهر زر المالك (دخول 1) مرة واحدة فقط
+        // المالك دخل سابقًا: يختفي زر المالك (الأحمر) فقط، ويبقى الأخضر للمستأجر
         document.getElementById('btn2').style.display='none';
         document.getElementById('btn1').style.display='flex';
-        document.getElementById('note').innerHTML='لمرة واحدة فقط: ادخل من الزر الأخضر (1)';
-    } else {
-        // لم يثبت النظام بعد: يظهر دخول 2 فقط
+        document.getElementById('note').innerHTML='تم تثبيت النظام على هذا الجهاز';
+    } else if(installed && !ownerDone){
+        // النظام مثبت ولم يدخل المالك بعد: يظهر زر المالك (الأحمر) مرة واحدة فقط
+        document.getElementById('btn2').style.display='flex';
         document.getElementById('btn1').style.display='none';
-        document.getElementById('note').innerHTML='بعد تثبيت النظام سيظهر دخول 1';
+        document.getElementById('note').innerHTML='لمرة واحدة فقط: ادخل من الزر الأحمر (2)';
+    } else {
+        // لم يثبت النظام بعد: يظهر دخول المستأجر (الأخضر) فقط
+        document.getElementById('btn1').style.display='flex';
+        document.getElementById('btn2').style.display='none';
+        document.getElementById('note').innerHTML='بعد تثبيت النظام سيظهر دخول 2';
     }
 })();
 </script>
