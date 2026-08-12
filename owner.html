@@ -48,7 +48,7 @@ td{padding:10px;font-size:12px;border-bottom:1px solid var(--bd);text-align:righ
 <body>
 <div class="top-bar"><div class="logo-text">👑 لوحة تحكم مالك النظام</div><div style="display:flex;gap:10px;align-items:center"><button class="btn btn-o" style="background:#fff" onclick="openTenantPage()">🖥️ صفحة المستأجرين</button><a href="https://wa.me/967770012528" target="_blank" class="btn btn-o" style="background:#fff;text-decoration:none">💬 تواصل المالك</a><button class="btn btn-d" onclick="doLogout()">🚪 خروج</button></div></div>
 <div class="content" id="admin-content"><div class="empty">⏳ جاري التحميل...</div></div>
-<div class="overlay" id="modal"><div class="modal-box"><h3 id="m-title" style="margin-bottom:20px"></h3><div id="m-body"></div><div style="text-align:left;margin-top:20px"><button class="btn btn-g" onclick="saveTenant()">💾 حفظ</button> <button class="btn btn-o" onclick="closeM()">إلغاء</button></div></div></div>
+<div class="overlay" id="modal"><div class="modal-box"><h3 id="m-title" style="margin-bottom:20px"></h3><div id="m-body"></div><div id="m-foot" style="text-align:left;margin-top:20px"><button class="btn btn-g" onclick="saveTenant()">💾 حفظ</button> <button class="btn btn-o" onclick="closeM()">إلغاء</button></div></div></div>
 <div class="toast-wrap" id="tst-b"></div>
 <div class="login-overlay" id="login-overlay"><div class="login-box" id="login-box"></div></div>
 
@@ -58,6 +58,16 @@ var OWNER_PHONE = "967770012528";
 // رابط صفحة المستأجرين (ملف منفصل في نفس المجلد)
 var TENANT_PAGE = "tenant.html";
 var db = null;
+var FEATURES_DEF = [
+    { key: 'feat_smart_alerts', icon: '🔔', name: 'التنبيهات', desc: 'شاشة التنبيهات الذكية في القائمة الجانبية' },
+    { key: 'feat_analysis', icon: '📈', name: 'التحليل', desc: 'شاشة التحليل والإحصائيات' },
+    { key: 'feat_dyn_stages', icon: '🧱', name: 'قائمة المكونات الديناميكية', desc: 'مكونات التشغيل والمراحل الديناميكية' },
+    { key: 'feat_order_msgs', icon: '📲', name: 'رسائل الطلبيات', desc: 'أزرار مراسلة العملاء بالنصوص والواتساب' },
+    { key: 'feat_global_search', icon: '🔍', name: 'البحث الشامل', desc: 'زر البحث الشامل في النظام أعلى الشاشة' },
+    { key: 'feat_page_search', icon: '🔎', name: 'البحث في الصفحات', desc: 'مربع البحث داخل جداول الصفحات' },
+    { key: 'feat_double_entry', icon: '📒', name: 'القيود المحاسبية المزدوجة', desc: 'النظام المحاسبي المزدوج والدفاتر' },
+    { key: 'feat_admin_settings', icon: '⚙️', name: 'إعدادات صفحة مدير النظام', desc: 'الوصول إلى إعدادات مدير النظام' }
+];
 
 function initFirebase() {
     return new Promise(function(resolve) {
@@ -191,7 +201,7 @@ async function loadTenants() {
         if(active.length === 0) aH = '<tr><td colspan="5"><div class="empty">لا توجد منشآت مفعلة</div></td></tr>';
         active.forEach(t => {
             var exp = t.renewalDate && t.renewalDate < today;
-            aH += '<tr><td>'+t.name+'</td><td>'+t.id+'</td><td>'+(t.type||'nursery')+'</td><td>'+(t.renewalDate||'-')+'</td><td><button class="btn btn-g" onclick="openTenantFor(\''+t.id+'\')">🖥️ دخول</button> <button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button></td></tr>';
+            aH += '<tr><td>'+t.name+'</td><td>'+t.id+'</td><td>'+(t.type||'nursery')+'</td><td>'+(t.renewalDate||'-')+'</td><td><button class="btn btn-g" onclick="openTenantFor(\''+t.id+'\')">🖥️ دخول</button> <button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button> <button class="btn btn-o" onclick="openFeatsModal(\''+t.id+'\')" title="تفعيل وإيقاف الميزات">⚙️ ميزات</button></td></tr>';
         });
         document.getElementById('active-tbody').innerHTML = aH;
         loadSupportRequests();
@@ -210,17 +220,22 @@ async function loadActivationRequests() {
         reqs.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
         window._pendingReqs = reqs;
         var pH = '';
-        if(reqs.length === 0) pH = '<tr><td colspan="6"><div class="empty">لا توجد طلبات تفعيل جديدة</div></td></tr>';
+        if(reqs.length === 0) pH = '<tr><td colspan="6"><div class="empty">لا توجد طلبات تفعيل جديدة - الطلبات تظهر هنا بعد إرسال العميل رسالة SMS</div></td></tr>';
         reqs.forEach(function(r) {
             var d = new Date(r.createdAt);
             var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()) : '-';
+            var isApproved = r.status === 'approved';
             pH += '<tr>';
             pH += '<td>'+H(r.name||'-')+'</td>';
             pH += '<td dir="ltr">'+H(r.email||'-')+'</td>';
             pH += '<td dir="ltr">'+H(r.phone||'-')+'</td>';
-            pH += '<td dir="ltr"><b>'+H(r.id)+'</b></td>';
+            pH += '<td dir="ltr"><b>'+(isApproved ? H(r.activationCode||'-') : H(r.id))+'</b></td>';
             pH += '<td>'+ds+'</td>';
-            pH += '<td><button class="btn btn-g" onclick="approveNewTenant(\''+r.id+'\')">✅ موافقة</button> <button class="btn btn-d" onclick="rejectNewTenant(\''+r.id+'\')">❌ رفض</button></td>';
+            if(isApproved) {
+                pH += '<td><span style="color:var(--gnd);font-size:11px">✅ مفعل</span><br><button class="btn btn-g" style="margin-top:4px;font-size:10px;padding:6px 10px" onclick="sendCodeToClient(\''+r.id+'\')">📩 إرسال الرمز للعميل</button></td>';
+            } else {
+                pH += '<td><button class="btn btn-g" onclick="approveNewTenant(\''+r.id+'\')">✅ موافقة</button> <button class="btn btn-d" onclick="rejectNewTenant(\''+r.id+'\')">❌ رفض</button></td>';
+            }
             pH += '</tr>';
         });
         document.getElementById('pending-tbody').innerHTML = pH;
@@ -228,19 +243,32 @@ async function loadActivationRequests() {
         if(kpiEl) kpiEl.innerText = (parseInt(kpiEl.innerText)||0) + reqs.length;
     } catch(e) { if(document.getElementById('pending-tbody')) document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6"><div class="empty">خطأ في التحميل</div></td></tr>'; }
 }
+function genActivationCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = 'ACT-';
+    for(var i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+    return code;
+}
 async function approveNewTenant(id) {
     try {
         var reqRef = db.collection("tenants_requests").doc(id);
         var reqDoc = await reqRef.get();
         if(!reqDoc.exists) { toast('الطلب غير موجود', 'e'); return; }
         var data = reqDoc.data();
+        var activationCode = genActivationCode();
         var cloudId = db.collection("tenants").doc().id;
-        await reqRef.update({ status: 'approved', cloudId: cloudId, approvedAt: new Date().toISOString() });
+        await reqRef.update({ status: 'approved', cloudId: cloudId, activationCode: activationCode, approvedAt: new Date().toISOString() });
         await db.collection("tenants").doc(cloudId).set({
             cloudId: cloudId, name: data.name, email: data.email, phone: data.phone,
-            status: 'awaiting_password', requestCode: id, passwordHash: '', createdAt: new Date().toISOString()
+            status: 'awaiting_password', requestCode: id, activationCode: activationCode, passwordHash: '', createdAt: new Date().toISOString()
         });
-        toast('✅ تمت الموافقة - يمكن للعميل الآن تعيين كلمة السر والدخول', 's', 5000);
+        var _tDoc = await db.collection("system_control").doc("all_tenants").get();
+        var _tArr = (_tDoc.exists && _tDoc.data().list) ? _tDoc.data().list : [];
+        if(!_tArr.find(x => x.id === cloudId)) {
+            _tArr.push({ id: cloudId, name: data.name, email: data.email, phone: data.phone, type: 'tenant', renewalDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0], status: 'pending', createdAt: new Date().toISOString() });
+            await db.collection("system_control").doc("all_tenants").set({ list: _tArr }, { merge: true });
+        }
+        toast('✅ تمت الموافقة - أرسل رمز التفعيل ' + activationCode + ' إلى العميل برسالة نصية', 's', 6000);
         loadTenants();
     } catch(e) { toast('خطأ في الموافقة', 'e'); }
 }
@@ -250,6 +278,26 @@ async function rejectNewTenant(id) {
         toast('❌ تم رفض الطلب وحذفه', 's');
         loadTenants();
     } catch(e) { toast('خطأ', 'e'); }
+}
+async function sendCodeToClient(code) {
+    try {
+        var reqDoc = await db.collection("tenants_requests").doc(code).get();
+        if(!reqDoc.exists) { toast('الطلب غير موجود', 'e'); return; }
+        var d = reqDoc.data();
+        var actCode = d.activationCode || '';
+        var msg = 'رمز تفعيل نظام ELEN SOFT المحاسبي\\u000A' + d.name + '\\u000Aالرمز: ' + actCode + '\\u000Aأدخل الرمز في شاشة التفعيل بالبريد الإلكتروني المسجل';
+        var smsText = 'رمز تفعيل نظام ELEN SOFT المحاسبي\u000A' + d.name + '\u000Aالرمز: ' + actCode + '\u000Aأدخل الرمز في شاشة التفعيل بالبريد الإلكتروني المسجل';
+        var phoneDisp = '+' + (d.phone || '');
+        var h = '<div style="font-size:12px;color:var(--fg);text-align:right">أرسل هذا الرمز إلى العميل برسالة نصية:<br><b dir="ltr" style="font-size:16px;color:var(--gnd)">'+actCode+'</b></div>';
+        h += '<div style="background:#FFF9E6;border:1px solid #E6B800;border-radius:10px;padding:10px;margin:10px 0;font-size:11px;color:#7A5C00;white-space:pre-wrap;text-align:right">'+smsText+'</div>';
+        h += '<button class="btn btn-g" style="width:100%" onclick="window.location.href=\u0027sms:'+phoneDisp+'?body='+encodeURIComponent(smsText)+'\u0027">📲 فتح الرسائل وإرسالها للعميل</button>';
+        h += '<button class="btn btn-o" style="width:100%;margin-top:6px" onclick="copyActCode(\u0027'+smsText+'\u0027)">📋 نسخ نص الرسالة</button>';
+        openModal('إرسال رمز التفعيل إلى العميل', h);
+    } catch(e) { toast('خطأ', 'e'); }
+}
+function copyActCode(txt) {
+    if(navigator.clipboard) { navigator.clipboard.writeText(txt).then(function(){ toast('✅ تم نسخ نص الرسالة', 's'); }); }
+    else { var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('✅ تم نسخ نص الرسالة', 's'); }
 }
 async function loadSupportRequests() {
     try {
@@ -326,7 +374,41 @@ function showTenantModal(id) {
     document.getElementById('modal').classList.add('open');
 }
 
+async function openFeatsModal(id) {
+    try {
+        var doc = await db.collection("tenants").doc(id).get();
+        var data = doc.exists ? doc.data() : {};
+        var feats = data.features || {};
+        var h = '<div style="font-size:12px;color:var(--fg2);margin-bottom:15px">تحكم بتفعيل وإيقاف ميزات النظام لهذه المنشأة. الإيقاف يخفي الميزة فقط ولا يحذف بياناتها.</div>';
+        FEATURES_DEF.forEach(function(f) {
+            var on = feats[f.key] !== false;
+            h += '<label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;cursor:pointer;background:' + (on ? 'var(--gnl)' : 'var(--bg)') + '">';
+            h += '<input type="checkbox" class="feat-cb" data-key="' + f.key + '" ' + (on ? 'checked' : '') + ' style="width:20px;height:20px;accent-color:var(--gn)">';
+            h += '<div style="flex:1"><div style="font-size:12px;font-weight:700">' + f.icon + ' ' + f.name + '</div><div style="font-size:10px;color:var(--mt)">' + f.desc + '</div></div>';
+            h += '<span style="font-size:11px;font-weight:700;color:' + (on ? 'var(--gn)' : 'var(--dn)') + '">' + (on ? '✅ مفعلة' : '🔴 موقفة') + '</span></label>';
+        });
+        document.getElementById('m-title').innerText = '⚙️ ميزات المنشأة: ' + (data.name || id);
+        document.getElementById('m-body').innerHTML = h;
+        document.getElementById('m-foot').innerHTML = '<button class="btn btn-g" onclick="saveFeats(\'' + id + '\')">💾 حفظ الميزات</button> <button class="btn btn-o" onclick="closeM()">إلغاء</button>';
+        document.querySelectorAll('.feat-cb').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                var lbl = this.closest('label');
+                var on = this.checked;
+                lbl.style.background = on ? 'var(--gnl)' : 'var(--bg)';
+                lbl.querySelector('span').innerText = on ? '✅ مفعلة' : '🔴 موقفة';
+                lbl.querySelector('span').style.color = on ? 'var(--gn)' : 'var(--dn)';
+            });
+        });
+        document.getElementById('modal').classList.add('open');
+    } catch(e) { toast('خطأ في تحميل الميزات', 'e'); }
+}
 function closeM() { document.getElementById('modal').classList.remove('open'); }
+function openModal(title, bodyHtml, footHtml) {
+    document.getElementById('m-title').innerText = title;
+    document.getElementById('m-body').innerHTML = bodyHtml;
+    document.getElementById('m-foot').innerHTML = footHtml || '<button class="btn btn-o" onclick="closeM()">إغلاق</button>';
+    document.getElementById('modal').classList.add('open');
+}
 
 async function saveTenant() {
     var name = document.getElementById('t-name').value;
@@ -363,6 +445,23 @@ async function approveTenant(id) {
     } catch(e) { toast('خطأ', 'e'); }
 }
 
+async function saveFeats(id) {
+    try {
+        var feats = {};
+        FEATURES_DEF.forEach(function(f) {
+            var cb = document.querySelector('.feat-cb[data-key="' + f.key + '"]');
+            feats[f.key] = cb ? cb.checked : true;
+        });
+        await db.collection("tenants").doc(id).update({ features: feats });
+        var docRef = db.collection("system_control").doc("all_tenants");
+        var doc = await docRef.get();
+        var arr = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var idx = arr.findIndex(x => x.id === id);
+        if(idx > -1) { arr[idx].features = feats; await docRef.set({ list: arr }, { merge: true }); }
+        toast('✅ تم حفظ ميزات المنشأة', 's');
+        closeM();
+    } catch(e) { toast('خطأ في حفظ الميزات', 'e'); }
+}
 function H(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 async function toggleSupportBtn(enabled) {
     try {

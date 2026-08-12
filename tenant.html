@@ -175,6 +175,7 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
 .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .status-paid { background: #E8F5EC; color: #2D6B45; }
 .status-unpaid { background: #FDE8E8; color: #B83226; }
+body[data-feat-page-search=off] .search-box{display:none!important}
 </style>
 </head>
 <body>
@@ -207,7 +208,7 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
     </div>
     <div class="logo-right">
         <select id="branch-selector" onchange="_currentBranch=this.value; localStorage.setItem('nr_current_branch', this.value); render();" style="background:rgba(255,255,255,.1); color:#fff; border: 1px solid rgba(255,255,255,.2); border-radius:6px; padding:4px 8px; font-size:10px; font-weight:600; cursor:pointer;"></select>
-        <span id="sync-status" onclick="forceCloudSync()" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:#A5D6A7;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="حالة المزامنة"><span id="sync-icon">✅</span> <span id="sync-text">متصل</span></span><span class="role-badge" id="role-badge">مدير</span><button class="logout-btn" onclick="doLogout()">🚪</button><button class="gear-btn" onclick="openGlobalSearch()">🔍</button><button class="gear-btn" onclick="toggleFocusMode()" id="focus-mode-btn" title="وضع التركيز">👁️</button><button class="gear-btn" onclick="toggleDarkMode()">🌙</button><button class="gear-btn" onclick="openSettings()">⚙️</button><button class="gear-btn" onclick="openSupportForm()" title="تواصل مع شركة ELEN SOFT" style="background:linear-gradient(135deg,#C45D3E,#E8735A);color:#fff;font-size:12px;width:auto;padding:0 8px">💬</button>
+        <span id="sync-status" onclick="forceCloudSync()" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:#A5D6A7;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="حالة المزامنة"><span id="sync-icon">✅</span> <span id="sync-text">متصل</span></span><span class="role-badge" id="role-badge">مدير</span><button class="logout-btn" onclick="doLogout()">🚪</button><button id="gs-btn" class="gear-btn" onclick="openGlobalSearch()">🔍</button><button class="gear-btn" onclick="toggleFocusMode()" id="focus-mode-btn" title="وضع التركيز">👁️</button><button class="gear-btn" onclick="toggleDarkMode()">🌙</button><button id="settings-btn" class="gear-btn" onclick="openSettings()">⚙️</button><button class="gear-btn" onclick="openSupportForm()" title="تواصل مع شركة ELEN SOFT" style="background:linear-gradient(135deg,#C45D3E,#E8735A);color:#fff;font-size:12px;width:auto;padding:0 8px">💬</button>
     </div>
 </header>
 <nav class="tabs-bar" id="tabs-bar"></nav>
@@ -280,27 +281,28 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
         </div>
 
         <div id="view-sms" style="display:none;">
-            <div class="login-title">📩 أرسل طلبك إلى مالك النظام</div>
-            <div class="login-sub">أرسل الرسالة النصية (SMS) إلى رقم مالك النظام: <b id="sms-owner-phone" style="direction:ltr;color:var(--gnd)" dir="ltr">+967770012528</b></div>
-            <div style="background:#FFF9E6;border:1px solid #E6B800;border-radius:12px;padding:12px;margin:12px 0;font-size:11px;color:#7A5C00">تُكتب الرسالة تلقائيًا بالبيانات أدناه. افتح تطبيق الرسائل من الزر الأخضر وأرسلها، ثم احتفظ برمز المنشأة لتأكيد التفعيل لاحقًا.</div>
-            <div class="login-field"><label>رمز المنشأة المؤقت (احتفظ به)</label><input type="text" id="sms-code" readonly style="direction:ltr; text-align:center;font-weight:800;font-size:16px;color:var(--gnd);background:#E8F5EC"></div>
-            <div class="login-field"><label>نص الرسالة الجاهز</label><textarea id="sms-msg-text" readonly style="width:100%;min-height:110px;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:11px;direction:rtl;line-height:1.9;resize:none" dir="rtl"></textarea></div>
+            <div class="login-title">⏳ طلبك قيد المراجعة</div>
+            <div class="login-sub">أرسلنا إشعار طلب التفعيل إلى مالك النظام وسيتم مراجعته</div>
+            <div style="background:#FFF9E6;border:1px solid #E6B800;border-radius:12px;padding:12px;margin:12px 0;font-size:11px;color:#7A5C00">بعد موافقة مالك النظام سيصلك رمز تفعيل عبر رسالة نصية من رقمه. لا يحتاج منك أي إجراء الآن إلا إرسال رسالة الإخطار إلى رقمه.</div>
+            <div class="login-field"><label>نص رسالة الإخطار الجاهز</label><textarea id="sms-msg-text" readonly style="width:100%;min-height:90px;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:11px;direction:rtl;line-height:1.9;resize:none" dir="rtl"></textarea></div>
             <div id="sms-msg-box" style="display:none"></div>
             <button class="login-btn primary" id="sms-open-btn" style="background:var(--gn)">📲 فتح تطبيق الرسائل وإرسالها</button>
             <button class="btn btn-o" id="sms-copy-btn" style="width:100%;margin-top:8px;justify-content:center">📋 نسخ الرسالة</button>
+            <div style="background:#E8F5EC;border:1px solid var(--gn);border-radius:12px;padding:12px;margin:12px 0;font-size:12px;color:#1E5C33;text-align:center"><b>وصلك رمز تفعيل برسالة نصية من مالك النظام؟</b><br>أدخله الآن لإكمال التفعيل</div>
+            <button class="login-btn" style="background:#1e3d2a;color:#fff" onclick="showLoginView('activate')">🔑 إدخال رمز التفعيل</button>
             <div style="text-align:center; margin-top:15px; font-size:11px;">
                 <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
             </div>
         </div>
 
         <div id="view-activate" style="display:none;">
-            <div class="login-title">تأكيد التفعيل</div>
-            <div class="login-sub">بعد موافقة مالك النظام على طلبك، أدخل رمز المنشأة وبريدك لتعيين كلمة السر</div>
-            <div class="login-field"><label>رمز المنشأة المؤقت</label><input type="text" id="act-request-id" placeholder="TEN-XXXX" style="direction:ltr; text-align:center;"></div>
+            <div class="login-title">🔑 إدخال رمز التفعيل</div>
+            <div class="login-sub">أدخل رمز التفعيل الذي وصلك برسالة نصية من مالك النظام</div>
+            <div class="login-field"><label>رمز التفعيل</label><input type="text" id="act-request-id" placeholder="ACT-XXXXX" style="direction:ltr; text-align:center;font-size:16px;letter-spacing:2px"></div>
             <div class="login-field"><label>البريد الإلكتروني للمنشأة</label><input type="email" id="act-email" placeholder="email@example.com" style="direction:ltr; text-align:right;"></div>
             <button class="login-btn primary" onclick="verifyActivationCode()">🔍 متابعة</button>
             <div style="text-align:center; margin-top:15px; font-size:11px;">
-                <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
+                <a href="javascript:void(0)" onclick="showLoginView('sms')" style="color:var(--fg2); text-decoration:none;">← العودة للإشعار</a>
             </div>
         </div>
     </div>
@@ -359,6 +361,11 @@ async function hashPassword(pw) { const msgBuffer = new TextEncoder().encode(pw)
 async function verifyPassword(pw, stored) { if (!stored || !pw) return false; const hashedPw = await hashPassword(pw); return hashedPw === stored; }
 function getCleanItemName(cropStr) { if(!cropStr) return ''; var match = String(cropStr).match(/^(.*?)\s*\([\d\.]+\)$/); return match ? match[1].trim() : String(cropStr).trim(); }
 function getTerm(term) { var bizType = localStorage.getItem('nr_business_type') || 'nursery'; var dictionaries = { 'nursery': {}, 'factory': { 'مشتل': 'مصنع', 'المشتل': 'المصنع', 'محصول': 'منتج', 'المحصول': 'المنتج', 'بذرة': 'مادة خام', 'البذور': 'المواد الخام', 'زراعة': 'تصنيع', 'بذر': 'تشغيل', 'شتلة': 'وحدة', 'صوبة': 'خط إنتاج', 'الصوبة': 'خط الإنتاج', 'المزروع': 'المصنع', 'المنجز': 'المكتمل', 'التشغيل': 'التصنيع', 'الإنتاج': 'المخرجات' }, 'retail': { 'مشتل': 'متجر', 'المشتل': 'المتجر', 'محصول': 'صنف', 'بذرة': 'بضاعة', 'البذور': 'البضائع', 'زراعة': 'توريد', 'بذر': 'استلام', 'شتلة': 'قطعة', 'صوبة': 'قسم', 'المزروع': 'الوارد', 'المنجز': 'الجاهز', 'التشغيل': 'التوريد', 'الإنتاج': 'المخزون' }, 'restaurant': { 'مشتل': 'مطعم', 'المشتل': 'المطعم', 'محصول': 'طبق', 'بذرة': 'مكون', 'البذور': 'المكونات', 'زراعة': 'تحضير', 'بذر': 'طبخ', 'شتلة': 'وجبة', 'صوبة': 'مطبخ', 'المزروع': 'المحضر', 'المنجز': 'المقدم', 'التشغيل': 'التحضير', 'الإنتاج': 'الوجبات' }, 'medical': { 'مشتل': 'عيادة', 'المشتل': 'العيادة', 'محصول': 'خدمة', 'بذرة': 'مستلزم طبي', 'البذور': 'المستلزمات', 'زراعة': 'تقديم خدمة', 'بذر': 'تجهيز', 'شتلة': 'جلسة', 'صوبة': 'غرفة فحص', 'المزروع': 'قيد العلاج', 'المنجز': 'مكتمل', 'التشغيل': 'الخدمات', 'الإنتاج': 'الجلسات' }, 'services': { 'مشتل': 'مؤسسة', 'المشتل': 'المؤسسة', 'محصول': 'خدمة', 'بذرة': 'أداة', 'البذور': 'الأدوات', 'زراعة': 'تنفيذ', 'بذر': 'بدء', 'شتلة': 'مهمة', 'صوبة': 'قسم', 'المزروع': 'منفذ', 'المنجز': 'مكتمل', 'التشغيل': 'المهام', 'الإنتاج': 'المخرجات' } }; var dict = dictionaries[bizType] || {}; return dict[term] || term; }
+function FEATURES_SYNC() { var tid = localStorage.getItem('nr_tenant_id'); if(!tid || !db) return Promise.resolve();
+function _apply(data){ if(data.features && typeof data.features === 'object') { var st = JSON.parse(localStorage.getItem('nr_tenant_settings') || '{}'); st.features = data.features; localStorage.setItem('nr_tenant_settings', JSON.stringify(st)); } if(data.renewalDate) { var st2 = JSON.parse(localStorage.getItem('nr_tenant_settings') || '{}'); st2.renewalDate = data.renewalDate; localStorage.setItem('nr_tenant_settings', JSON.stringify(st2)); } }
+function _syncFromCloudId(cloudId){ if(!cloudId) return Promise.resolve(); return db.collection("tenants").doc(cloudId).get().then(function(d){ if(d.exists) _apply(d.data()); }); }
+return db.collection("tenants").doc(tid).get().then(function(doc){ if(!doc.exists) return _syncFromCloudId(tid); _apply(doc.data()); }).catch(function(e){}); }
+function applyFeatsUI() { var gb = document.getElementById('gs-btn'); if(gb) gb.style.display = isFeatOn('feat_global_search') ? '' : 'none'; var sb = document.getElementById('settings-btn'); if(sb) sb.style.display = isFeatOn('feat_admin_settings') ? '' : 'none'; if(document.body) { document.body.setAttribute('data-feat-page-search', isFeatOn('feat_page_search') ? 'on' : 'off'); document.body.setAttribute('data-feat-global-search', isFeatOn('feat_global_search') ? 'on' : 'off'); } }
 function isFeatOn(key) { var tenantSettings = JSON.parse(localStorage.getItem('nr_tenant_settings') || '{}'); var today = new Date().toISOString().split('T')[0]; if (tenantSettings.renewalDate && tenantSettings.renewalDate < today) { return false; } if (!tenantSettings.features || tenantSettings.features[key] === undefined) return true; return tenantSettings.features[key] === true; }
 function getRoles() { try { var r = JSON.parse(localStorage.getItem('nr_roles')); return Array.isArray(r) && r.length ? r : DEFAULT_ROLES; } catch(e) { return DEFAULT_ROLES; } }
 function getMyRole() { var roles = getRoles(); return roles.find(r => r.name === currentRole) || roles[0]; }
@@ -415,10 +422,11 @@ async function submitTenantRegistration() {
         showSmsScreen(tempCode, name, email, phone);
     } catch(e) { toast('❌ خطأ أثناء إرسال الطلب', 'e'); }
 }
+var _lastRegData = null;
 function showSmsScreen(code, name, email, phone) {
     showLoginView('sms');
-    document.getElementById('sms-code').textContent = code;
-    var smsBody = 'طلب تفعيل نظام ELEN SOFT المحاسبي\u000Aاسم المنشأة: ' + name + '\u000Aالبريد الإلكتروني: ' + email + '\u000Aرقم التواصل: ' + phone + '\u000Aرمز المنشأة المؤقت: ' + code;
+    _lastRegData = { code: code, email: email, phone: phone };
+    var smsBody = 'طلب تفعيل نظام ELEN SOFT المحاسبي\u000Aاسم المنشأة: ' + name + '\u000Aالبريد الإلكتروني: ' + email + '\u000Aرقم التواصل: ' + phone;
     document.getElementById('sms-msg-text').value = smsBody;
     document.getElementById('sms-msg-box').textContent = smsBody;
     var OWNER_PHONE_DISP = '+967770012528';
@@ -432,79 +440,95 @@ function copySmsText(txt) {
 }
 var _activationCtx = null;
 async function verifyActivationCode() {
-    var requestId = document.getElementById('act-request-id').value.trim().toUpperCase();
+    var requestCode = document.getElementById('act-request-id').value.trim().toUpperCase();
     var inputEmail = document.getElementById('act-email').value.trim().toLowerCase();
-    if(!requestId || !inputEmail) { toast('أدخل رمز المنشأة والبريد الإلكتروني', 'e'); return; }
+    if(!requestCode || !inputEmail) { toast('أدخل رمز التفعيل والبريد الإلكتروني', 'e'); return; }
+    if(!requestCode.startsWith('ACT-')) { toast('رمز التفعيل يجب أن يبدأ بـ ACT-', 'e'); return; }
     try {
-        var reqDoc = await db.collection("tenants_requests").doc(requestId).get();
-        if(!reqDoc.exists) { toast('رمز المنشأة غير موجود', 'e'); return; }
-        var data = reqDoc.data();
-        if(data.status !== 'approved') { toast('⏳ طلبك لم تتم الموافقة عليه بعد من مالك النظام', 'e'); return; }
-        if(String(data.email).trim().toLowerCase() !== inputEmail) { toast('❌ البريد الإلكتروني لا يطابق تسجيل المنشأة', 'e'); return; }
-        var tSnap = await db.collection("tenants").where("email", "==", inputEmail).where("status", "==", "awaiting_password").limit(1).get();
-        if(tSnap.empty) { toast('❌ لا يوجد حساب مفعل لهذا البريد - انتظر موافقة المالك', 'e'); return; }
+        // البحث برمز التفعيل فقط (لا حاجة لمؤشر مركب في Firestore)
+        var tSnap = await db.collection("tenants").where("activationCode", "==", requestCode).limit(1).get();
+        if(tSnap.empty) { toast('❌ رمز التفعيل غير صحيح أو غير موجود', 'e'); return; }
         var tenantDoc = tSnap.docs[0];
         var tData = tenantDoc.data();
-        _activationCtx = { requestId: requestId, cloudId: tData.cloudId, email: tData.email, name: tData.name, phone: tData.phone, docRef: tenantDoc.ref, reqRef: reqDoc.ref };
+        // التحقق من تطابق البريد (بغض النظر عن حالة الأحرف)
+        if(String(tData.email || '').trim().toLowerCase() !== inputEmail) { toast('❌ البريد الإلكتروني لا يطابق تسجيل المنشأة', 'e'); return; }
+        var reqCode = String(tData.requestCode || '');
+        var reqDoc = await db.collection("tenants_requests").doc(reqCode).get();
+        var reqApproved = reqDoc.exists && reqDoc.data().status === 'approved';
+        if(!reqApproved) { toast('⏳ طلبك لم تتم الموافقة عليه بعد من مالك النظام', 'e'); return; }
+        _activationCtx = { requestId: requestCode, activationCode: requestCode, cloudId: tData.cloudId, email: tData.email, name: tData.name, phone: tData.phone, docRef: tenantDoc.ref, reqRef: reqDoc.ref };
         showPasswordSetupScreen();
     } catch(e) { toast('❌ خطأ أثناء التفعيل', 'e'); }
 }
 function showPasswordSetupScreen() {
     document.getElementById('login-overlay').style.display = 'flex';
     var c = _activationCtx;
-    var h = '<h2 style="margin-bottom:10px">🔐 تعيين كلمة السر</h2>';
-    h += '<div style="font-size:12px;color:var(--mt);margin-bottom:15px">تمت موافقة مالك النظام. عيّن كلمة سر جديدة للدخول.</div>';
+    var h = '<h2 style="margin-bottom:10px">🔐 إكمال التفعيل</h2>';
+    h += '<div style="font-size:12px;color:var(--mt);margin-bottom:15px">تمت موافقة مالك النظام. أكمل بياناتك للدخول.</div>';
     h += '<div style="font-size:11px;background:#E8F5EC;border:1px solid var(--gn);border-radius:10px;padding:10px;margin-bottom:15px;text-align:right">المنشأة: <b>'+H(c.name)+'</b><br>البريد: <b>'+H(c.email)+'</b></div>';
-    h += '<div style="margin-bottom:12px"><input type="password" id="act-pass" placeholder="كلمة السر الجديدة" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center" oninput="checkPassStrength(this.value)"></div>';
+    h += '<div class="login-field"><label>كلمة السر التي أرسلها لك مالك النظام برسالة نصية</label><input type="text" id="act-sms-code" placeholder="ACT-XXXXX" style="direction:ltr; text-align:center;font-size:16px;letter-spacing:2px" oninput="this.value=this.value.toUpperCase()"></div>';
+    h += '<div class="login-field"><label>اسم المستخدم الجديد</label><input type="text" id="act-username" placeholder="مثال: admin_1"></div>';
+    h += '<div class="login-field"><label>كلمة المرور الجديدة</label><input type="password" id="act-pass" placeholder="كلمة السر الجديدة" style="direction:ltr" oninput="checkPassStrength(this.value)"></div>';
     h += '<div id="pass-strength-bar" style="height:5px;margin-bottom:4px;border-radius:5px;background:#ddd;transition:all .3s;width:0%"></div>';
     h += '<small id="pass-strength-text" style="font-size:10px;color:var(--mt);display:block;margin-bottom:12px"></small>';
-    h += '<div style="margin-bottom:12px"><input type="password" id="act-pass2" placeholder="تأكيد كلمة السر الجديدة" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center"></div>';
+    h += '<div class="login-field"><label>تأكيد كلمة المرور</label><input type="password" id="act-pass2" placeholder="أعد كتابة كلمة السر" style="direction:ltr"></div>';
     h += '<div style="font-size:11px;background:#FFF3E0;border:1px solid #E65100;border-radius:10px;padding:10px;margin-bottom:14px;color:#7A3B00">⚠️ احتفظ بكلمة السر في مكان آمن ولا يصل إليها أحد. لا يمكن استعادتها ونسيانها يتطلب إعادة طلب التفعيل.</div>';
-    h += '<button class="btn btn-g" style="width:100%" onclick="saveNewPassword()">💾 حفظ كلمة السر والدخول</button>';
+    h += '<button class="btn btn-g" style="width:100%" onclick="saveNewPassword()">💾 حفظ والدخول للنظام</button>';
     h += '<div style="text-align:center;margin-top:12px;font-size:11px"><a href="javascript:void(0)" onclick="hidePasswordSetup()" style="color:var(--fg2);text-decoration:none">إلغاء</a></div>';
     document.getElementById('login-box').innerHTML = h;
 }
 function hidePasswordSetup() { _activationCtx = null; document.getElementById('login-overlay').style.display = 'none'; showLoginView('login'); }
 async function saveNewPassword() {
+    var smsCode = document.getElementById('act-sms-code').value.trim().toUpperCase();
+    var username = document.getElementById('act-username').value.trim();
     var pass = document.getElementById('act-pass').value;
     var pass2 = document.getElementById('act-pass2').value;
-    if(!pass || !pass2) { toast('أدخل كلمة السر وتأكيدها', 'e'); return; }
-    if(pass !== pass2) { toast('❌ كلمة السر وتأكيدها غير متطابقتين', 'e'); return; }
-    if(pass.length < 8) { toast('كلمة السر يجب أن تكون 8 أحرف على الأقل', 'e'); return; }
+    if(!smsCode) { toast('أدخل كلمة السر التي أرسلها لك مالك النظام برسالة نصية', 'e'); return; }
+    if(String(smsCode) !== String(_activationCtx.activationCode)) { toast('❌ كلمة السر المرسلة نصيًا غير صحيحة - تأكد من الرمز', 'e'); return; }
+    if(!username) { toast('أدخل اسم المستخدم الجديد', 'e'); return; }
+    if(username.length < 3) { toast('اسم المستخدم يجب أن يكون 3 أحرف على الأقل', 'e'); return; }
+    if(!pass || !pass2) { toast('أدخل كلمة المرور وتأكيدها', 'e'); return; }
+    if(pass !== pass2) { toast('❌ كلمة المرور وتأكيدها غير متطابقتين', 'e'); return; }
+    if(pass.length < 8) { toast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'e'); return; }
     var c = _activationCtx;
-    if(!c) { toast('أعد إدخال رمز المنشأة', 'e'); return; }
+    if(!c) { toast('أعد إدخال رمز التفعيل', 'e'); return; }
     try {
         var hashedPass = await encryptPassword(pass);
-        await c.docRef.update({ passwordHash: hashedPass, status: 'active', activatedAt: new Date().toISOString() });
+        await c.docRef.update({ username: username, passwordHash: hashedPass, status: 'active', activatedAt: new Date().toISOString() });
         await c.reqRef.delete();
         localStorage.setItem('nr_tenant_id', c.cloudId);
         localStorage.setItem('nr_nursery_name', c.name);
+        localStorage.setItem('nr_username', username);
         localStorage.setItem('elen_installed', '1');
         localStorage.setItem('elen_first_run', '1');
         var localUsers = getUsers();
-        localUsers.push({id: uid(), username: c.email, password: hashedPass, role: 'مدير نظام'});
+        localUsers.push({id: uid(), username: username, password: hashedPass, role: 'مدير نظام'});
         saveUsers(localUsers);
-        currentUser = { username: c.name, role: 'مدير نظام', password: hashedPass };
+        currentUser = { username: username, role: 'مدير نظام', password: hashedPass };
         currentRole = 'مدير نظام';
         localStorage.setItem('elen_first_user_done', '1');
         _activationCtx = null;
         document.getElementById('login-overlay').style.display = 'none';
-        toast('🎉 تم تفعيل حسابك بنجاح!', 's');
+        applySupportBtnVisibility();
+        toast('🎉 تم تفعيل حسابك بنجاح! سجّل الدخول باسم المستخدم الذي أنشأته', 's', 6000);
         await initApp();
         setTimeout(function(){ openSettings(); }, 600);
-    } catch(e) { toast('❌ خطأ أثناء حفظ كلمة السر', 'e'); }
+    } catch(e) { toast('❌ خطأ أثناء حفظ البيانات', 'e'); }
 }
 async function tenantSecureLogin() {
     var email = document.getElementById('login-email').value;
     var pass = document.getElementById('login-pass').value;
     var errEl = document.getElementById('login-error');
     errEl.textContent = '';
-    if(!email || !pass) { errEl.textContent = 'أدخل البريد وكلمة السر'; return; }
+    if(!email || !pass) { errEl.textContent = 'أدخل اسم المستخدم أو البريد وكلمة السر'; return; }
     var hashedInputPass = await encryptPassword(pass);
     try {
-        var snapshot = await db.collection("tenants").where("email", "==", email).limit(1).get();
+        var userOrEmail = email.trim().toLowerCase();
+        var snapshot = await db.collection("tenants").where("email", "==", userOrEmail).limit(1).get();
+        if(snapshot.empty) snapshot = await db.collection("tenants").where("username", "==", email.trim()).limit(1).get();
         if(snapshot.empty) { errEl.textContent = '⚠️ الحساب غير موجود'; return; }
         var tenantData = snapshot.docs[0].data();
+        if(tenantData.status === 'awaiting_password') { errEl.textContent = '⏳ حسابك بانتظار تعيين كلمة السر - أكمل التفعيل'; setTimeout(function(){ document.getElementById('login-error').dataset.awaiting='0'; showLoginView('activate'); document.getElementById('act-email').value = tenantData.email; }, 1500); return; }
         if(tenantData.passwordHash === hashedInputPass) {
             if(tenantData.status !== 'active') { errEl.textContent = '🚫 الحساب موقوف، تواصل مع الإدارة'; return; }
             localStorage.setItem('nr_tenant_id', tenantData.cloudId);
@@ -540,6 +564,7 @@ async function checkLogin(){
                 document.getElementById('login-overlay').classList.add('hidden');
                 // مسح المعلمة من الرابط دون إعادة تحميل عبر history
                 try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
+                applySupportBtnVisibility();
                 initApp();
                 return;
             }
@@ -557,6 +582,7 @@ async function checkLogin(){
                 localStorage.setItem('elen_installed', '1');
                 localStorage.setItem('elen_first_run', '1');
                 document.getElementById('login-overlay').classList.add('hidden');
+                applySupportBtnVisibility();
                 initApp();
                 return;
             }
@@ -582,6 +608,7 @@ async function checkAutoBackup() {
     } catch(e) { console.error("Backup Error:", e); } 
 }
 async function initApp(){
+    try { await FEATURES_SYNC(); applyFeatsUI(); } catch(e) {}
     loadDarkMode(); 
     loadFocusMode();
     try { 
@@ -681,7 +708,7 @@ function cfDel(srcKey,id){ if(!canDelete()){toast('⚠️ ليس لديك صلا
 function debounceSearch(val) { clearTimeout(_searchTimer); _searchTimer = setTimeout(function() { _searchQuery = val.toLowerCase(); _currentPage = 1; render(); }, 500); }
 function toggleQuickNav(){document.getElementById('quick-nav').classList.toggle('open')} 
 function buildQuickNav(){var h='<div id="quick-nav-sheet"><div class="handle-bar" style="margin-bottom:15px"></div><div class="qnav-grid">';var allowed=getAllowedScreens();SHEETS.forEach(function(s){if(allowed.includes(s.key)){var tabName=s.name;if(s.key==='operation')tabName=getTerm('التشغيل');if(s.key==='production')tabName=getTerm('الإنتاج');if(s.key==='items')tabName=getTerm('الأصناف');if(s.key==='inventory')tabName=getTerm('المخزون');h+='<div class="qnav-item" onclick="go(\''+s.key+'\');toggleQuickNav()"><div>'+s.icon+'</div><div>'+tabName+'</div></div>'}});h+='</div><button style="margin-top:20px;width:100%" class="btn btn-o" onclick="toggleQuickNav()">إغلاق</button></div>';document.getElementById('quick-nav').innerHTML=h;} 
-function buildTabs(){ var h='';var allowed=getAllowedScreens();SHEETS.forEach(function(s){if(allowed.includes(s.key)){var tabName=s.name;if(s.key==='operation')tabName=getTerm('التشغيل');if(s.key==='production')tabName=getTerm('الإنتاج');if(s.key==='items')tabName=getTerm('الأصناف');if(s.key==='inventory')tabName=getTerm('المخزون');h+='<button class="tab'+(s.key===curTab?' on':'')+'" onclick="go(\''+s.key+'\')">'+s.icon+' '+tabName+'</button>'}});document.getElementById('tabs-bar').innerHTML=h; var activeTab = document.querySelector('#tabs-bar .tab.on'); var tabsBar = document.getElementById('tabs-bar'); if(activeTab && tabsBar) { var scrollPos = activeTab.offsetLeft - (tabsBar.offsetWidth / 2) + (activeTab.offsetWidth / 2); tabsBar.scrollTo({ left: scrollPos, behavior: 'smooth' }); } }
+function buildTabs(){ var h='';var allowed=getAllowedScreens();var featsFilter={'alerts':'feat_smart_alerts','analysis':'feat_analysis'};SHEETS.filter(function(s){var k=featsFilter[s.key];return !k||isFeatOn(k);}).forEach(function(s){if(allowed.includes(s.key)){var tabName=s.name;if(s.key==='operation')tabName=getTerm('التشغيل');if(s.key==='production')tabName=getTerm('الإنتاج');if(s.key==='items')tabName=getTerm('الأصناف');if(s.key==='inventory')tabName=getTerm('المخزون');h+='<button class="tab'+(s.key===curTab?' on':'')+'" onclick="go(\''+s.key+'\')">'+s.icon+' '+tabName+'</button>'}});document.getElementById('tabs-bar').innerHTML=h; var activeTab = document.querySelector('#tabs-bar .tab.on'); var tabsBar = document.getElementById('tabs-bar'); if(activeTab && tabsBar) { var scrollPos = activeTab.offsetLeft - (tabsBar.offsetWidth / 2) + (activeTab.offsetWidth / 2); tabsBar.scrollTo({ left: scrollPos, behavior: 'smooth' }); } }
 function buildBottomBar(){ var utilDisplay = localStorage.getItem('nr_show_util_btns') !== '0' ? 'flex' : 'none'; var h = '<span id="utility-btns" style="display:'+utilDisplay+';gap:6px;flex-wrap:nowrap;">'+ '<button class="fb" onclick="saveAll()">💾</button>'+ '<button class="fb" onclick="expSheet()">📤</button>'+ '<button class="fb" onclick="document.getElementById(\'imp-f\').click()">📥</button>'+ '<button class="fb" onclick="backupData()">🗃️</button>'+ '<button class="fb" onclick="document.getElementById(\'restore-f\').click()">📂</button>'+ '</span>'; document.getElementById('bottom-bar').innerHTML=h; var calcWidget = document.getElementById('float-calc-widget'); if(calcWidget) { var calcDisplay = localStorage.getItem('nr_show_calc_btn') !== '0' ? 'block' : 'none'; calcWidget.style.display = calcDisplay; } } 
 function expSheet(){var data=D[curTab]||[];if(!data.length){toast('لا توجد بيانات للتصدير','e');return}if(typeof XLSX === 'undefined'){toast('⚠️ مكتبة التصدير لم تحمل','e');return}try{var cleanData = data.map(function(r){if(curTab === 'invoices') {return {'رقم الفاتورة': r.invoiceNo || '','التاريخ': r.date || '','العميل': r.customer || '','الصنف': r.crop || '','الكمية': r.qty || 0,'سعر الصنف': r.price || 0,'الإجمالي': r.total || 0};} else {var cleanRow = {};for(var key in r){if(typeof r[key] === 'object' && r[key] !== null){cleanRow[key] = JSON.stringify(r[key]);} else {cleanRow[key] = r[key];}}return cleanRow;}});var ws=XLSX.utils.json_to_sheet(cleanData);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,curTab+'.xlsx');toast('✅ تم تجهيز ملف التصدير','s');}catch(e){console.error(e);toast('⚠️ المتصفح حظر التنزيل','e');}}
 function exportCurrentTableToExcel(customName){ var tables=document.querySelectorAll('#content .tbl-wrap table'); if(!tables.length){toast('⚠️ لا يوجد جدول للتصدير في هذه الشاشة','e');return;} if(typeof XLSX === 'undefined'){toast('⚠️ مكتبة التصدير لم تحمل','e');return;} var wb=XLSX.utils.book_new(); var sheetAdded=false; tables.forEach(function(table,idx){ var clone=table.cloneNode(true); clone.querySelectorAll('.action-col, .no-print, button, .print-dropdown').forEach(function(el){el.remove();}); var ws=XLSX.utils.table_to_sheet(clone); XLSX.utils.book_append_sheet(wb,ws,'تقرير '+(idx+1)); sheetAdded=true; }); if(sheetAdded){ var fileName = (customName || curTab) + '.xlsx'; XLSX.writeFile(wb, fileName); toast('✅ تم تجهيز ملف Excel','s'); } }
@@ -852,7 +879,7 @@ function isPartialDeliveryAllowed() { return localStorage.getItem('nr_partial_de
 function checkStockAvailability(itemName, neededQty, excludeInvId) { if(!isInventoryLocked()) return true; var inv = calcInventory(); var prodStore = 'مخزن الإنتاج التام'; var available = (inv[itemName] && inv[itemName][prodStore]) ? inv[itemName][prodStore] : 0; if(excludeInvId) { var oldInv = D.invoices.find(i => i.id === excludeInvId); if(oldInv && oldInv.crop === itemName && oldInv.type !== 'pos') available += Number(oldInv.qty || 0); } if(neededQty > available) { toast('🚫 رصيد المخزون غير كافٍ! المتوفر من ('+itemName+'): '+fm(available), 'e'); return false; } return true; }
 function deliverPartialOrder(id) { var r = D.orders.find(x => x.id === id); if(!r) return; var remainingQty = Number(r.requested) - Number(r.deliveredQty || 0); mMode = 'partial-delivery'; mId = id; openM('🚚 تسليم جزئي للطلبية', [ {name:'date', label:'تاريخ التسليم', type:'date', value:new Date().toISOString().split('T')[0]}, {name:'qty', label:'الكمية المسلمة الآن (المتبقي: '+fm(remainingQty)+')', attr:'onclick="openCalcPad(this)"'}, {name:'paid', label:'المدفوع', attr:'onclick="openCalcPad(this)"'} ]); }
 handlers['partial-delivery'] = function(o) { var r = D.orders.find(x => x.id === mId); if(!r) return false; var qty = Number(o.qty); var remainingQty = Number(r.requested) - Number(r.deliveredQty || 0); if(qty <= 0 || qty > remainingQty) { toast('⚠️ أدخل كمية صحيحة', 'e'); return false; } if(!checkStockAvailability(r.crop, qty)) return false; var itemDef = D.items.find(i => i.name === r.crop); var price = itemDef ? Number(itemDef.price || 0) : 0; var amt = qty * price; var defaultVat = Number(localStorage.getItem('nr_vat')||'15')/100; var vat = amt * defaultVat; var total = amt + vat; var paid = Number(o.paid || 0); var newInvNo = 'PORD-' + (D.invoices.length + 1); var invId = uid(); D.delivered.push({ id: uid(), date: o.date, customer: r.customer, phone: r.phone || '', crop: r.crop, qty: qty, sourceOrderId: r.id }); D.invoices.push({ id: invId, date: o.date, invoiceNo: newInvNo, customer: r.customer, crop: r.crop, qty: qty, price: price, discount: 0, currency: 'YER', exchangeRate: 1, amount: amt, vat: vat, total: total, paid: paid, remaining: total - paid, amountBase: amt, vatBase: vat, totalBase: total, paidBase: paid, status: paid >= total ? 'paid' : 'unpaid', dueDate: o.date, type: 'sale', sourceOrderId: r.id, returns: 0, returnsBase: 0, costCenter: '' }); var invLines = []; if(total - paid > 0) invLines.push({account:'acc_ar', debit: total - paid, credit: 0}); if(paid > 0) invLines.push({account:'acc_cash', debit: paid, credit: 0}); invLines.push({account:'acc_sales', debit: 0, credit: amt}); if(vat > 0) invLines.push({account:'acc_vat', debit: 0, credit: vat}); postJournalEntry(o.date, 'فاتورة تسليم جزئي '+newInvNo+' - '+r.customer, 'invoice', invId, invLines); r.deliveredQty = (Number(r.deliveredQty)||0) + qty; if(Number(r.deliveredQty) >= Number(r.requested)) r.status = 'delivered'; saveD('delivered'); saveD('invoices'); saveD('orders'); toast('✅ تم التسليم الجزئي وإنشاء فاتورة '+newInvNo, 's'); return true; };
-function rOrders(){ var data = applyDateFilter(getActive('orders').slice().reverse(), 'dueDate'); if(_currentBranch !== 'all') { data = data.filter(r => r.branch === _currentBranch); } var filteredData = data.filter(function(r) { if(_alertFilter === 'ord_due3') { var tStr = new Date().toISOString().split('T')[0]; var d3 = new Date(); d3.setDate(d3.getDate() + 3); var d3Str = d3.toISOString().split('T')[0]; return r.status === 'pending' && r.dueDate >= tStr && r.dueDate <= d3Str; } if(_alertFilter) _alertFilter = ''; if(!_searchQuery) return true; return (r.customer || '').toLowerCase().includes(_searchQuery) || (r.crop || '').toLowerCase().includes(_searchQuery); }); var totalRequested = 0; var totalDelivered = 0; filteredData.forEach(function(r) { totalRequested += Number(r.requested || 0); totalDelivered += Number(r.deliveredQty || 0); }); var remainingToDeliver = totalRequested - totalDelivered; var h = getPrintHeaderHtml('سجل الطلبيات') + agg([{icon:'🛒', label:'عدد الطلبيات', val: filteredData.length},{icon:'📦', label:'إجمالي المطلوب', val: fm(totalRequested)},{icon:'🚚', label:'إجمالي المسلم', val: fm(totalDelivered)},{icon:'⏳', label:'المتبقي (المحجوز)', val: fm(remainingToDeliver)}]); h += '<div class="toolbar no-print"><div class="search-box"><input value="'+H(_searchQuery)+'" placeholder="بحث..." oninput="debounceSearch(this.value)"></div>'+dateFilterHtml()+'<button class="btn btn-o" onclick="smartPrint()">🖨️</button>'; if(!isViewer()) h += '<button class="btn btn-g" onclick="addManualOrder()">➕ طلب يدوي</button>'; h += '</div><div class="tbl-wrap"><table><thead><tr><th>تاريخ الطلب</th><th>تاريخ الاستحقاق</th><th>العميل</th><th>الصنف</th><th>المطلوب</th><th>المنجز</th><th>الحالة</th><th>إجراء / مراسلة</th></tr></thead><tbody>'; var startIndex = (_currentPage - 1) * _itemsPerPage; var paginatedData = filteredData.slice(startIndex, startIndex + _itemsPerPage); if(!paginatedData.length) h+='<tr><td colspan="8"><div class="empty">📭 لا توجد طلبيات</div></td></tr>'; paginatedData.forEach(function(r){ var statusBdg = r.status==='delivered' ? '<span class="bdg bdg-g">مسلم</span>' : (r.status==='cancelled' ? '<span class="bdg bdg-r">ملغي</span>' : '<span class="bdg bdg-y">معلق</span>'); var msgType = 'booking'; var today = new Date(); today.setHours(0,0,0,0); var dueDate = r.dueDate ? new Date(r.dueDate) : new Date(); dueDate.setHours(0,0,0,0); var diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24)); if(r.status === 'delivered') { msgType = 'invoice'; } else if (r.status === 'pending') { if (diffDays < -10) { msgType = 'overdue_10'; } else if (diffDays <= 3 && diffDays >= 0) { msgType = 'reminder'; } else { msgType = 'booking'; } } var msgBtns = ''; if(localStorage.getItem('nr_enable_msg') !== '0') { msgBtns = '<div class="print-dropdown"><button class="btn btn-i btn-o" onclick="toggleDrop(this)">📤</button><div class="print-dropdown-content"><a href="javascript:void(0)" onclick="sendOrderSMS('+r.id+',\''+msgType+'\')">📱 رسالة نصية</a><a href="javascript:void(0)" onclick="sendOrderWhatsApp('+r.id+',\''+msgType+'\')">📲 واتساب نصي</a></div></div>'; } h+='<tr><td>'+H(r.date)+'</td><td><b>'+H(r.dueDate||'-')+'</b></td><td>'+H(r.customer)+'</td><td>'+H(r.crop)+'</td><td class="num-highlight">'+fm(r.requested)+'</td><td class="num-highlight">'+fm(r.deliveredQty||0)+'</td><td>'+statusBdg+'</td><td><div style="display:flex;gap:4px;align-items:center">'+msgBtns; if(isPartialDeliveryAllowed() && r.status === 'pending' && Number(r.deliveredQty||0) < Number(r.requested)) { h += '<button class="btn btn-i btn-g" onclick="deliverPartialOrder('+r.id+')" title="تسليم جزئي">🚚</button>'; } if(!isViewer()) h+='<button class="btn btn-i btn-o" onclick="editOrder('+r.id+')">✏️</button>'; if(canDelete()) h+='<button class="btn btn-i" style="background:#FDE8E8;color:var(--dn);border:none" onclick="cfDel(\'orders\','+r.id+')">🗑️</button>'; h+='</div></td></tr>'; }); h+='</tbody></table></div>'; h += paginationHtml(filteredData.length); return h; }
+function rOrders(){ var data = applyDateFilter(getActive('orders').slice().reverse(), 'dueDate'); if(_currentBranch !== 'all') { data = data.filter(r => r.branch === _currentBranch); } var filteredData = data.filter(function(r) { if(_alertFilter === 'ord_due3') { var tStr = new Date().toISOString().split('T')[0]; var d3 = new Date(); d3.setDate(d3.getDate() + 3); var d3Str = d3.toISOString().split('T')[0]; return r.status === 'pending' && r.dueDate >= tStr && r.dueDate <= d3Str; } if(_alertFilter) _alertFilter = ''; if(!_searchQuery) return true; return (r.customer || '').toLowerCase().includes(_searchQuery) || (r.crop || '').toLowerCase().includes(_searchQuery); }); var totalRequested = 0; var totalDelivered = 0; filteredData.forEach(function(r) { totalRequested += Number(r.requested || 0); totalDelivered += Number(r.deliveredQty || 0); }); var remainingToDeliver = totalRequested - totalDelivered; var h = getPrintHeaderHtml('سجل الطلبيات') + agg([{icon:'🛒', label:'عدد الطلبيات', val: filteredData.length},{icon:'📦', label:'إجمالي المطلوب', val: fm(totalRequested)},{icon:'🚚', label:'إجمالي المسلم', val: fm(totalDelivered)},{icon:'⏳', label:'المتبقي (المحجوز)', val: fm(remainingToDeliver)}]); h += '<div class="toolbar no-print"><div class="search-box"><input value="'+H(_searchQuery)+'" placeholder="بحث..." oninput="debounceSearch(this.value)"></div>'+dateFilterHtml()+'<button class="btn btn-o" onclick="smartPrint()">🖨️</button>'; if(!isViewer()) h += '<button class="btn btn-g" onclick="addManualOrder()">➕ طلب يدوي</button>'; h += '</div><div class="tbl-wrap"><table><thead><tr><th>تاريخ الطلب</th><th>تاريخ الاستحقاق</th><th>العميل</th><th>الصنف</th><th>المطلوب</th><th>المنجز</th><th>الحالة</th><th>إجراء / مراسلة</th></tr></thead><tbody>'; var startIndex = (_currentPage - 1) * _itemsPerPage; var paginatedData = filteredData.slice(startIndex, startIndex + _itemsPerPage); if(!paginatedData.length) h+='<tr><td colspan="8"><div class="empty">📭 لا توجد طلبيات</div></td></tr>'; paginatedData.forEach(function(r){ var statusBdg = r.status==='delivered' ? '<span class="bdg bdg-g">مسلم</span>' : (r.status==='cancelled' ? '<span class="bdg bdg-r">ملغي</span>' : '<span class="bdg bdg-y">معلق</span>'); var msgType = 'booking'; var today = new Date(); today.setHours(0,0,0,0); var dueDate = r.dueDate ? new Date(r.dueDate) : new Date(); dueDate.setHours(0,0,0,0); var diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24)); if(r.status === 'delivered') { msgType = 'invoice'; } else if (r.status === 'pending') { if (diffDays < -10) { msgType = 'overdue_10'; } else if (diffDays <= 3 && diffDays >= 0) { msgType = 'reminder'; } else { msgType = 'booking'; } } var msgBtns = ''; if(isFeatOn('feat_order_msgs') && localStorage.getItem('nr_enable_msg') !== '0') { msgBtns = '<div class="print-dropdown"><button class="btn btn-i btn-o" onclick="toggleDrop(this)">📤</button><div class="print-dropdown-content"><a href="javascript:void(0)" onclick="sendOrderSMS('+r.id+',\''+msgType+'\')">📱 رسالة نصية</a><a href="javascript:void(0)" onclick="sendOrderWhatsApp('+r.id+',\''+msgType+'\')">📲 واتساب نصي</a></div></div>'; } h+='<tr><td>'+H(r.date)+'</td><td><b>'+H(r.dueDate||'-')+'</b></td><td>'+H(r.customer)+'</td><td>'+H(r.crop)+'</td><td class="num-highlight">'+fm(r.requested)+'</td><td class="num-highlight">'+fm(r.deliveredQty||0)+'</td><td>'+statusBdg+'</td><td><div style="display:flex;gap:4px;align-items:center">'+msgBtns; if(isPartialDeliveryAllowed() && r.status === 'pending' && Number(r.deliveredQty||0) < Number(r.requested)) { h += '<button class="btn btn-i btn-g" onclick="deliverPartialOrder('+r.id+')" title="تسليم جزئي">🚚</button>'; } if(!isViewer()) h+='<button class="btn btn-i btn-o" onclick="editOrder('+r.id+')">✏️</button>'; if(canDelete()) h+='<button class="btn btn-i" style="background:#FDE8E8;color:var(--dn);border:none" onclick="cfDel(\'orders\','+r.id+')">🗑️</button>'; h+='</div></td></tr>'; }); h+='</tbody></table></div>'; h += paginationHtml(filteredData.length); return h; }
 function addManualOrder(){ var batchId = uid(); mMode='order-add'; openM('📝 إضافة طلبيات متعددة',[{name:'date',label:'تاريخ الطلب',type:'date',value:new Date().toISOString().split('T')[0]}, {name:'customer',label:'العميل',type:'searchselect',searchItems:D.clients.map(c=>c.name),placeholder:'🔍 ابحث...',hasOther:true}, {type:'html',html:'<div class="fg" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><label style="font-weight:700;font-size:10px;color:var(--fg2);">📦 الأصناف المطلوبة:</label><button type="button" class="btn btn-g" style="padding:2px 8px;font-size:10px;" onclick="addOrderRow()">➕ صنف</button></div><div class="multi-items-box"><table class="multi-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>تاريخ الاستحقاق</th><th>نوع الحجز</th><th>✕</th></tr></thead><tbody id="order-rows-body"></tbody></table></div></div>'}]); addOrderRow(); }
 function addOrderRow() { var tbody = document.getElementById('order-rows-body'); if(!tbody) return; var rowId = 'ord_' + Date.now() + '_' + Math.floor(Math.random()*1000); var tr = document.createElement('tr'); tr.id = rowId; var opts = itemsOptions('','sale'); var reserveOpts = '<option value="عادي">عادي</option><option value="ربع سنوي">ربع سنوي</option><option value="نصف سنوي">نصف سنوي</option><option value="سنوي">سنوي</option>'; tr.innerHTML = '<td><select class="multi-input row-item">'+opts+'</select></td>'+ '<td><input type="number" class="multi-input row-qty" placeholder="0" step="1"></td>'+ '<td><input type="date" class="multi-input row-duedate" value="'+new Date().toISOString().split('T')[0]+'"></td>'+ '<td><select class="multi-input row-reserve">'+reserveOpts+'</select></td>'+ '<td><button type="button" class="btn btn-d" style="padding:2px 6px;font-size:9px;" onclick="document.getElementById(\''+rowId+'\').remove();">✕</button></td>'; tbody.appendChild(tr); }
 handlers['order-add']=function(o){ if(!o.customer){toast('⚠️ اختر العميل','e');return false;} var rows = document.querySelectorAll('#order-rows-body tr'); if(rows.length === 0) { toast('⚠️ أضف صنفاً واحداً على الأقل','e'); return false; } var count = 0; var batchId = uid(); rows.forEach(r => { var itemName = r.querySelector('.row-item').value; var qty = Number(r.querySelector('.row-qty').value)||0; var dueDate = r.querySelector('.row-duedate').value || new Date().toISOString().split('T')[0]; var reserve = r.querySelector('.row-reserve').value; if(itemName && qty > 0) { D.orders.push({id:uid(), batchId:batchId, date:o.date, branch: _currentBranch === 'all' ? 'الفرع الرئيسي' : _currentBranch, dueDate:dueDate, customer:o.customer, crop:itemName, requested:qty, reservationType:reserve, deliveredQty:0, status:'pending'}); count++; } }); if(count === 0) { toast('⚠️ أدخل بيانات الأصناف بشكل صحيح','e'); return false; } saveD('orders'); return true; };
@@ -1365,15 +1392,20 @@ async function applySupportBtnVisibility() {
     try {
         var cfg = await db.collection("system_control").doc("owner_config").get();
         var enabled = !(cfg.exists && cfg.data() && cfg.data().supportEnabled === false);
-        var btn = document.querySelector('button[onclick="openSupportForm()"]');
-        if(btn) btn.style.display = enabled ? '' : 'none';
+        var btn = document.getElementById('sup-fab');
+        var hasSession = !!localStorage.getItem('nr_tenant_id');
+        if(btn) btn.style.display = (enabled && hasSession) ? '' : 'none';
     } catch(e) { /* المالك لا يتحكم => يُعرض الزر افتراضيًا */ }
 }
-function openSupportForm() {
+async function openSupportForm() {
     var name = getNurseryName();
     var email = currentUser ? currentUser.username : '';
     var code = localStorage.getItem('nr_tenant_id') || '-';
     var phone = localStorage.getItem('nr_phone') || '';
+    try {
+        var regSnap = await db.collection("tenants").where("cloudId", "==", code).limit(1).get();
+        if(!regSnap.empty && regSnap.docs[0].data().email) email = regSnap.docs[0].data().email;
+    } catch(e) { /* يبقى اسم المستخدم */ }
     var topicOpts = SUPPORT_TOPICS.map(function(t) {
         return '<option value="'+t.value+'">'+t.label+'</option>';
     }).join('');
@@ -1397,13 +1429,19 @@ async function submitSupportRequest() {
     var msg = document.getElementById('sup-msg').value.trim();
     if(!msg) { toast('اكتب تفاصيل طلبك', 'e'); return; }
     try {
+        // البحث عن بريد التسجيل الفعلي من سحابة البيانات
+        var contactEmail = currentUser ? currentUser.username : '';
+        try {
+            var tidSnap = await db.collection("tenants").where("cloudId", "==", localStorage.getItem('nr_tenant_id') || '').limit(1).get();
+            if(!tidSnap.empty) contactEmail = tidSnap.docs[0].data().email || contactEmail;
+        } catch(e) { /* يبقى اسم المستخدم */ }
         var doc = await db.collection("system_control").doc("support_requests").get();
         var list = (doc.exists && doc.data().list) ? doc.data().list : [];
         list.push({
             id: 'SUP-' + Date.now().toString(36).toUpperCase(),
             tenantId: localStorage.getItem('nr_tenant_id') || '',
             tenantName: getNurseryName(),
-            tenantEmail: currentUser ? currentUser.username : '',
+            tenantEmail: contactEmail,
             tenantPhone: localStorage.getItem('nr_phone') || '',
             topic: topic,
             message: msg,
@@ -1463,5 +1501,6 @@ function showSupportDetail(id) {
     document.getElementById('m-foot').innerHTML = '<button class="btn btn-o" onclick="openSupportHistory()">رجوع</button> <button class="btn btn-o" onclick="closeM()">إغلاق</button>';
 }
 </script>
+<button id="sup-fab" onclick="openSupportForm()" style="position:fixed;bottom:85px;left:16px;z-index:9990;background:var(--gn);color:#fff;border:none;border-radius:30px;padding:11px 18px;font-size:12px;font-weight:700;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;display:none" title="تواصل مع شركة ELEN SOFT">💬 تواصل مع ELEN SOFT</button>
 </body>
 </html>
