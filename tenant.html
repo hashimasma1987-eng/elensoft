@@ -272,15 +272,22 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
             <div class="login-sub">سيتم مراجعة طلبك من قبل الإدارة</div>
             <div class="login-field"><label>اسم المنشأة</label><input type="text" id="reg-nursery-name" placeholder="مثال: مشتل التنمية"></div>
             <div class="login-field"><label>البريد الإلكتروني</label><input type="email" id="reg-email" placeholder="email@example.com" style="direction:ltr; text-align:right;"></div>
-            <div class="login-field"><label>رقم التواصل (واتساب)</label><input type="tel" id="reg-phone" placeholder="967777123456" style="direction:ltr; text-align:right;"></div>
-            <div class="login-field">
-                <label>كلمة السر</label>
-                <input type="password" id="reg-pass" oninput="checkPassStrength(this.value)" style="direction:ltr; text-align:right;">
-                <div id="pass-strength-bar" style="height:5px; margin-top:5px; border-radius:5px; background:#ddd; transition:all .3s;"></div>
-                <small id="pass-strength-text" style="font-size:10px; color:var(--mt);">ضعيفة</small>
+            <div class="login-field"><label>رقم التواصل</label><input type="tel" id="reg-phone" placeholder="967777123456" style="direction:ltr; text-align:right;"></div>
+            <button class="login-btn primary" onclick="submitTenantRegistration()">📤 طلب التفعيل</button>
+            <div style="text-align:center; margin-top:15px; font-size:11px;">
+                <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
             </div>
-            <div class="login-field"><label>تأكيد كلمة السر</label><input type="password" id="reg-pass2" style="direction:ltr; text-align:right;"></div>
-            <button class="login-btn primary" onclick="submitTenantRegistration()">📤 إرسال طلب التفعيل</button>
+        </div>
+
+        <div id="view-sms" style="display:none;">
+            <div class="login-title">📩 أرسل طلبك إلى مالك النظام</div>
+            <div class="login-sub">أرسل الرسالة النصية (SMS) إلى رقم مالك النظام: <b id="sms-owner-phone" style="direction:ltr;color:var(--gnd)" dir="ltr">+967770012528</b></div>
+            <div style="background:#FFF9E6;border:1px solid #E6B800;border-radius:12px;padding:12px;margin:12px 0;font-size:11px;color:#7A5C00">تُكتب الرسالة تلقائيًا بالبيانات أدناه. افتح تطبيق الرسائل من الزر الأخضر وأرسلها، ثم احتفظ برمز المنشأة لتأكيد التفعيل لاحقًا.</div>
+            <div class="login-field"><label>رمز المنشأة المؤقت (احتفظ به)</label><input type="text" id="sms-code" readonly style="direction:ltr; text-align:center;font-weight:800;font-size:16px;color:var(--gnd);background:#E8F5EC"></div>
+            <div class="login-field"><label>نص الرسالة الجاهز</label><textarea id="sms-msg-text" readonly style="width:100%;min-height:110px;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:11px;direction:rtl;line-height:1.9;resize:none" dir="rtl"></textarea></div>
+            <div id="sms-msg-box" style="display:none"></div>
+            <button class="login-btn primary" id="sms-open-btn" style="background:var(--gn)">📲 فتح تطبيق الرسائل وإرسالها</button>
+            <button class="btn btn-o" id="sms-copy-btn" style="width:100%;margin-top:8px;justify-content:center">📋 نسخ الرسالة</button>
             <div style="text-align:center; margin-top:15px; font-size:11px;">
                 <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
             </div>
@@ -288,10 +295,10 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
 
         <div id="view-activate" style="display:none;">
             <div class="login-title">تأكيد التفعيل</div>
-            <div class="login-sub">تمت موافقة الإدارة! أدخل كود التفعيل المرسل لهاتفك</div>
+            <div class="login-sub">بعد موافقة مالك النظام على طلبك، أدخل رمز المنشأة وبريدك لتعيين كلمة السر</div>
             <div class="login-field"><label>رمز المنشأة المؤقت</label><input type="text" id="act-request-id" placeholder="TEN-XXXX" style="direction:ltr; text-align:center;"></div>
-            <div class="login-field"><label>كود التفعيل (6 أرقام)</label><input type="text" id="act-code" placeholder="123456" style="direction:ltr; text-align:center;"></div>
-            <button class="login-btn primary" onclick="verifyActivationCode()">✅ تفعيل الحساب</button>
+            <div class="login-field"><label>البريد الإلكتروني للمنشأة</label><input type="email" id="act-email" placeholder="email@example.com" style="direction:ltr; text-align:right;"></div>
+            <button class="login-btn primary" onclick="verifyActivationCode()">🔍 متابعة</button>
             <div style="text-align:center; margin-top:15px; font-size:11px;">
                 <a href="javascript:void(0)" onclick="showLoginView('login')" style="color:var(--fg2); text-decoration:none;">← العودة لتسجيل الدخول</a>
             </div>
@@ -369,6 +376,7 @@ function addAuditLog(action, details) { if(!D.auditLog) D.auditLog = []; D.audit
 function showLoginView(view) {
     document.getElementById('view-login').style.display = view === 'login' ? 'block' : 'none';
     document.getElementById('view-register').style.display = view === 'register' ? 'block' : 'none';
+    var v3 = document.getElementById('view-sms'); if(v3) v3.style.display = view === 'sms' ? 'block' : 'none';
     document.getElementById('view-activate').style.display = view === 'activate' ? 'block' : 'none';
 }
 function checkPassStrength(pass) {
@@ -390,57 +398,101 @@ async function encryptPassword(pw) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+var _lastReqCode = null;
 async function submitTenantRegistration() {
     var name = document.getElementById('reg-nursery-name').value;
     var email = document.getElementById('reg-email').value;
     var phone = document.getElementById('reg-phone').value;
-    var pass = document.getElementById('reg-pass').value;
-    var pass2 = document.getElementById('reg-pass2').value;
-    if(!name || !email || !phone || !pass) { toast('يرجى ملء جميع الحقول', 'e'); return; }
-    if(pass !== pass2) { toast('كلمتا السر غير متطابقتين', 'e'); return; }
-    if(pass.length < 8) { toast('كلمة السر يجب أن تكون 8 أحرف على الأقل', 'e'); return; }
-    var hashedPass = await encryptPassword(pass);
+    if(!name || !email || !phone) { toast('يرجى ملء جميع الحقول', 'e'); return; }
+    if(!/^\d{8,15}$/.test(phone)) { toast('رقم الهاتف غير صحيح (8-15 رقمًا)', 'e'); return; }
     var tempCode = 'TEN-' + Math.floor(1000 + Math.random() * 9000);
     try {
         await db.collection("tenants_requests").doc(tempCode).set({
             id: tempCode, name: name, email: email, phone: phone,
-            passwordHash: hashedPass, status: 'pending', createdAt: new Date().toISOString()
+            status: 'pending', createdAt: new Date().toISOString()
         });
-        toast('⏳ تم إرسال طلبك بنجاح. رمز المنشأة المؤقت: ' + tempCode, 's', 6000);
-        showLoginView('login'); 
+        _lastReqCode = tempCode;
+        showSmsScreen(tempCode, name, email, phone);
     } catch(e) { toast('❌ خطأ أثناء إرسال الطلب', 'e'); }
 }
+function showSmsScreen(code, name, email, phone) {
+    showLoginView('sms');
+    document.getElementById('sms-code').textContent = code;
+    var smsBody = 'طلب تفعيل نظام ELEN SOFT المحاسبي\u000Aاسم المنشأة: ' + name + '\u000Aالبريد الإلكتروني: ' + email + '\u000Aرقم التواصل: ' + phone + '\u000Aرمز المنشأة المؤقت: ' + code;
+    document.getElementById('sms-msg-text').value = smsBody;
+    document.getElementById('sms-msg-box').textContent = smsBody;
+    var OWNER_PHONE_DISP = '+967770012528';
+    document.getElementById('sms-owner-phone').textContent = OWNER_PHONE_DISP;
+    document.getElementById('sms-open-btn').onclick = function() { window.location.href = 'sms:' + OWNER_PHONE_DISP + '?body=' + encodeURIComponent(smsBody); };
+    document.getElementById('sms-copy-btn').onclick = function() { copySmsText(smsBody); };
+}
+function copySmsText(txt) {
+    if(navigator.clipboard) { navigator.clipboard.writeText(txt).then(function(){ toast('✅ تم نسخ الرسالة - أرسلها الآن إلى رقم المالك', 's', 5000); }).catch(function(){ toast('اضغط مطولًا على نص الرسالة لنسخه', 's', 4000); }); }
+    else { var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('✅ تم نسخ الرسالة - أرسلها الآن إلى رقم المالك', 's', 5000); }
+}
+var _activationCtx = null;
 async function verifyActivationCode() {
-    var requestId = document.getElementById('act-request-id').value;
-    var inputCode = document.getElementById('act-code').value;
-    if(!requestId || !inputCode) { toast('أدخل البيانات', 'e'); return; }
+    var requestId = document.getElementById('act-request-id').value.trim().toUpperCase();
+    var inputEmail = document.getElementById('act-email').value.trim().toLowerCase();
+    if(!requestId || !inputEmail) { toast('أدخل رمز المنشأة والبريد الإلكتروني', 'e'); return; }
     try {
         var reqDoc = await db.collection("tenants_requests").doc(requestId).get();
         if(!reqDoc.exists) { toast('رمز المنشأة غير موجود', 'e'); return; }
         var data = reqDoc.data();
-        if(data.status !== 'approved') { toast('طلبك لم تتم الموافقة عليه بعد', 'e'); return; }
-        if(String(data.activationCode) !== String(inputCode)) { toast('❌ كود التفعيل غير صحيح', 'e'); return; }
-        var cloudId = db.collection("tenants").doc().id; 
-        await db.collection("tenants").doc(cloudId).set({
-            cloudId: cloudId, name: data.name, email: data.email, phone: data.phone,
-            passwordHash: data.passwordHash, status: 'active', activatedAt: new Date().toISOString()
-        });
-        await db.collection("tenants_requests").doc(requestId).delete();
-        localStorage.setItem('nr_tenant_id', cloudId);
-        localStorage.setItem('nr_nursery_name', data.name);
+        if(data.status !== 'approved') { toast('⏳ طلبك لم تتم الموافقة عليه بعد من مالك النظام', 'e'); return; }
+        if(String(data.email).trim().toLowerCase() !== inputEmail) { toast('❌ البريد الإلكتروني لا يطابق تسجيل المنشأة', 'e'); return; }
+        var tSnap = await db.collection("tenants").where("email", "==", inputEmail).where("status", "==", "awaiting_password").limit(1).get();
+        if(tSnap.empty) { toast('❌ لا يوجد حساب مفعل لهذا البريد - انتظر موافقة المالك', 'e'); return; }
+        var tenantDoc = tSnap.docs[0];
+        var tData = tenantDoc.data();
+        _activationCtx = { requestId: requestId, cloudId: tData.cloudId, email: tData.email, name: tData.name, phone: tData.phone, docRef: tenantDoc.ref, reqRef: reqDoc.ref };
+        showPasswordSetupScreen();
+    } catch(e) { toast('❌ خطأ أثناء التفعيل', 'e'); }
+}
+function showPasswordSetupScreen() {
+    document.getElementById('login-overlay').style.display = 'flex';
+    var c = _activationCtx;
+    var h = '<h2 style="margin-bottom:10px">🔐 تعيين كلمة السر</h2>';
+    h += '<div style="font-size:12px;color:var(--mt);margin-bottom:15px">تمت موافقة مالك النظام. عيّن كلمة سر جديدة للدخول.</div>';
+    h += '<div style="font-size:11px;background:#E8F5EC;border:1px solid var(--gn);border-radius:10px;padding:10px;margin-bottom:15px;text-align:right">المنشأة: <b>'+H(c.name)+'</b><br>البريد: <b>'+H(c.email)+'</b></div>';
+    h += '<div style="margin-bottom:12px"><input type="password" id="act-pass" placeholder="كلمة السر الجديدة" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center" oninput="checkPassStrength(this.value)"></div>';
+    h += '<div id="pass-strength-bar" style="height:5px;margin-bottom:4px;border-radius:5px;background:#ddd;transition:all .3s;width:0%"></div>';
+    h += '<small id="pass-strength-text" style="font-size:10px;color:var(--mt);display:block;margin-bottom:12px"></small>';
+    h += '<div style="margin-bottom:12px"><input type="password" id="act-pass2" placeholder="تأكيد كلمة السر الجديدة" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center"></div>';
+    h += '<div style="font-size:11px;background:#FFF3E0;border:1px solid #E65100;border-radius:10px;padding:10px;margin-bottom:14px;color:#7A3B00">⚠️ احتفظ بكلمة السر في مكان آمن ولا يصل إليها أحد. لا يمكن استعادتها ونسيانها يتطلب إعادة طلب التفعيل.</div>';
+    h += '<button class="btn btn-g" style="width:100%" onclick="saveNewPassword()">💾 حفظ كلمة السر والدخول</button>';
+    h += '<div style="text-align:center;margin-top:12px;font-size:11px"><a href="javascript:void(0)" onclick="hidePasswordSetup()" style="color:var(--fg2);text-decoration:none">إلغاء</a></div>';
+    document.getElementById('login-box').innerHTML = h;
+}
+function hidePasswordSetup() { _activationCtx = null; document.getElementById('login-overlay').style.display = 'none'; showLoginView('login'); }
+async function saveNewPassword() {
+    var pass = document.getElementById('act-pass').value;
+    var pass2 = document.getElementById('act-pass2').value;
+    if(!pass || !pass2) { toast('أدخل كلمة السر وتأكيدها', 'e'); return; }
+    if(pass !== pass2) { toast('❌ كلمة السر وتأكيدها غير متطابقتين', 'e'); return; }
+    if(pass.length < 8) { toast('كلمة السر يجب أن تكون 8 أحرف على الأقل', 'e'); return; }
+    var c = _activationCtx;
+    if(!c) { toast('أعد إدخال رمز المنشأة', 'e'); return; }
+    try {
+        var hashedPass = await encryptPassword(pass);
+        await c.docRef.update({ passwordHash: hashedPass, status: 'active', activatedAt: new Date().toISOString() });
+        await c.reqRef.delete();
+        localStorage.setItem('nr_tenant_id', c.cloudId);
+        localStorage.setItem('nr_nursery_name', c.name);
         localStorage.setItem('elen_installed', '1');
         localStorage.setItem('elen_first_run', '1');
         var localUsers = getUsers();
-        localUsers.push({id: uid(), username: data.email, password: data.passwordHash, role: 'مدير نظام'});
+        localUsers.push({id: uid(), username: c.email, password: hashedPass, role: 'مدير نظام'});
         saveUsers(localUsers);
-        currentUser = { username: data.email, role: 'مدير نظام', password: data.passwordHash };
+        currentUser = { username: c.name, role: 'مدير نظام', password: hashedPass };
         currentRole = 'مدير نظام';
         localStorage.setItem('elen_first_user_done', '1');
-        document.getElementById('login-overlay').classList.add('hidden');
+        _activationCtx = null;
+        document.getElementById('login-overlay').style.display = 'none';
         toast('🎉 تم تفعيل حسابك بنجاح!', 's');
-        initApp();
+        await initApp();
         setTimeout(function(){ openSettings(); }, 600);
-    } catch(e) { toast('❌ خطأ أثناء التفعيل', 'e'); }
+    } catch(e) { toast('❌ خطأ أثناء حفظ كلمة السر', 'e'); }
 }
 async function tenantSecureLogin() {
     var email = document.getElementById('login-email').value;

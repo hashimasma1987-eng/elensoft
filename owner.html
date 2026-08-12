@@ -155,7 +155,7 @@ function doLogout() {
 async function renderAdmin() {
     document.getElementById('login-overlay').style.display = 'none';
     var h = '<div class="kpi-grid"><div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">🏢</div><div><div class="kpi-val" id="kpi-total">-</div><div class="kpi-lbl">منشآت مفعلة</div></div></div><div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">⏳</div><div><div class="kpi-val" id="kpi-pending">-</div><div class="kpi-lbl">طلبات معلقة</div></div></div></div>';
-    h += '<div class="card"><h3>⏳ طلبات التفعيل المعلقة (تصل عبر رسالة SMS/واتساب برمز المنشأة)</h3><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الهاتف</th><th>الرمز</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="4"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>📩 طلبات التفعيل الجديدة (رسائل SMS الواردة من العملاء)</h3><div style="font-size:11px;color:var(--mt);margin-bottom:10px">تصل عبر الرسائل النصية على هاتفك. بعد الموافقة يستطيع العميل تعيين كلمة السر والدخول.</div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>البريد</th><th>الهاتف</th><th>الرمز</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="6"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;background:var(--gnl);border:1px solid var(--gn);border-radius:12px;padding:12px 16px"><span style="font-size:12px;font-weight:700">💬 زر التواصل مع الشركة في صفحة المستأجرين:</span><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="support-toggle" onchange="toggleSupportBtn(this.checked)" style="width:18px;height:18px"><span id="support-toggle-lbl" style="font-size:12px;font-weight:700">جاري التحميل...</span></label></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>إجراء</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     h += '<div class="card"><h3>💬 طلبات التواصل والتوثيق (من المستأجرين)</h3><div class="tbl-wrap"><table><thead><tr><th>رقم الطلب</th><th>المنشأة</th><th>الرمز</th><th>البريد</th><th>الهاتف</th><th>الموضوع</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="support-tbody"><tr><td colspan="9"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     document.getElementById('admin-content').innerHTML = h;
@@ -179,8 +179,9 @@ async function loadTenants() {
         var today = new Date().toISOString().split('T')[0];
         var active = arr.filter(t => t.status === 'active');
         var pending = arr.filter(t => t.status === 'pending');
+        var pendingReqs = window._pendingReqs || [];
         document.getElementById('kpi-total').innerText = active.length;
-        document.getElementById('kpi-pending').innerText = pending.length;
+        document.getElementById('kpi-pending').innerText = pending.length + pendingReqs.length;
         
         var pH = '';
         if(pending.length === 0) pH = '<tr><td colspan="4"><div class="empty">لا يوجد طلبات</div></td></tr>';
@@ -194,9 +195,62 @@ async function loadTenants() {
         });
         document.getElementById('active-tbody').innerHTML = aH;
         loadSupportRequests();
+        loadActivationRequests();
     } catch(e) { toast('خطأ في تحميل البيانات', 'e'); }
 }
 
+async function loadActivationRequests() {
+    try {
+        var snap = await db.collection("tenants_requests").get();
+        var reqs = [];
+        snap.forEach(function(d) {
+            var dd = d.data();
+            if(dd && dd.status === 'pending') reqs.push(dd);
+        });
+        reqs.sort(function(a,b){ return (b.createdAt||'').localeCompare(a.createdAt||''); });
+        window._pendingReqs = reqs;
+        var pH = '';
+        if(reqs.length === 0) pH = '<tr><td colspan="6"><div class="empty">لا توجد طلبات تفعيل جديدة</div></td></tr>';
+        reqs.forEach(function(r) {
+            var d = new Date(r.createdAt);
+            var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()) : '-';
+            pH += '<tr>';
+            pH += '<td>'+H(r.name||'-')+'</td>';
+            pH += '<td dir="ltr">'+H(r.email||'-')+'</td>';
+            pH += '<td dir="ltr">'+H(r.phone||'-')+'</td>';
+            pH += '<td dir="ltr"><b>'+H(r.id)+'</b></td>';
+            pH += '<td>'+ds+'</td>';
+            pH += '<td><button class="btn btn-g" onclick="approveNewTenant(\''+r.id+'\')">✅ موافقة</button> <button class="btn btn-d" onclick="rejectNewTenant(\''+r.id+'\')">❌ رفض</button></td>';
+            pH += '</tr>';
+        });
+        document.getElementById('pending-tbody').innerHTML = pH;
+        var kpiEl = document.getElementById('kpi-pending');
+        if(kpiEl) kpiEl.innerText = (parseInt(kpiEl.innerText)||0) + reqs.length;
+    } catch(e) { if(document.getElementById('pending-tbody')) document.getElementById('pending-tbody').innerHTML = '<tr><td colspan="6"><div class="empty">خطأ في التحميل</div></td></tr>'; }
+}
+async function approveNewTenant(id) {
+    try {
+        var reqRef = db.collection("tenants_requests").doc(id);
+        var reqDoc = await reqRef.get();
+        if(!reqDoc.exists) { toast('الطلب غير موجود', 'e'); return; }
+        var data = reqDoc.data();
+        var cloudId = db.collection("tenants").doc().id;
+        await reqRef.update({ status: 'approved', cloudId: cloudId, approvedAt: new Date().toISOString() });
+        await db.collection("tenants").doc(cloudId).set({
+            cloudId: cloudId, name: data.name, email: data.email, phone: data.phone,
+            status: 'awaiting_password', requestCode: id, passwordHash: '', createdAt: new Date().toISOString()
+        });
+        toast('✅ تمت الموافقة - يمكن للعميل الآن تعيين كلمة السر والدخول', 's', 5000);
+        loadTenants();
+    } catch(e) { toast('خطأ في الموافقة', 'e'); }
+}
+async function rejectNewTenant(id) {
+    try {
+        await db.collection("tenants_requests").doc(id).delete();
+        toast('❌ تم رفض الطلب وحذفه', 's');
+        loadTenants();
+    } catch(e) { toast('خطأ', 'e'); }
+}
 async function loadSupportRequests() {
     try {
         var doc = await db.collection("system_control").doc("support_requests").get();
@@ -257,6 +311,7 @@ async function updateSupportStatus(id) {
         toast('✅ تم تحديث حالة الطلب', 's');
         closeM();
         loadSupportRequests();
+        loadActivationRequests();
     } catch(e) { toast('خطأ في الحفظ', 'e'); }
 }
 
