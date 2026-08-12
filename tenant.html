@@ -429,6 +429,7 @@ async function verifyActivationCode() {
         localStorage.setItem('nr_tenant_id', cloudId);
         localStorage.setItem('nr_nursery_name', data.name);
         localStorage.setItem('elen_installed', '1');
+        localStorage.setItem('elen_first_run', '1');
         var localUsers = getUsers();
         localUsers.push({id: uid(), username: data.email, password: data.passwordHash, role: 'مدير نظام'});
         saveUsers(localUsers);
@@ -457,6 +458,7 @@ async function tenantSecureLogin() {
             localStorage.setItem('nr_tenant_id', tenantData.cloudId);
             localStorage.setItem('nr_nursery_name', tenantData.name);
             localStorage.setItem('elen_installed', '1');
+            localStorage.setItem('elen_first_run', '1');
             currentUser = { username: tenantData.name, role: 'مدير نظام' };
             currentRole = 'مدير نظام';
             document.getElementById('login-overlay').classList.add('hidden');
@@ -482,6 +484,7 @@ async function checkLogin(){
                 currentUser = { username: d.nurseryName || d.name || 'مدير', role: 'مدير نظام' };
                 currentRole = 'مدير نظام';
                 localStorage.setItem('elen_installed', '1');
+                localStorage.setItem('elen_first_run', '1');
                 document.getElementById('login-overlay').classList.add('hidden');
                 // مسح المعلمة من الرابط دون إعادة تحميل عبر history
                 try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
@@ -500,6 +503,7 @@ async function checkLogin(){
                 currentUser = { username: savedName || 'مدير', role: 'مدير نظام' };
                 currentRole = 'مدير نظام';
                 localStorage.setItem('elen_installed', '1');
+                localStorage.setItem('elen_first_run', '1');
                 document.getElementById('login-overlay').classList.add('hidden');
                 initApp();
                 return;
@@ -1291,6 +1295,7 @@ window.addEventListener('appinstalled', function() {
     if (installBtn) installBtn.style.display = 'none'; 
     deferredPrompt = null; 
     localStorage.setItem('elen_installed', '1');
+    localStorage.setItem('elen_first_run', '1');
 });
 if(currentUser || localStorage.getItem('nr_tenant_id')) { applySupportBtnVisibility(); }
 
