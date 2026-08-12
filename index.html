@@ -68,33 +68,34 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
     });
     var installed = localStorage.getItem('elen_installed');
     var ownerDone = localStorage.getItem('elen_owner_done');
-    // علامة أول تشغيل بعد تثبيت التطبيق: تظهر مرة واحدة ثم تُحذف
+    // علامة أول تشغيل بعد تثبيت التطبيق: تظهر مرة واحدة ثم تُمسح
     var firstRunAfterInstall = localStorage.getItem('elen_first_run');
-    // عند حدث تثبيت التطبيق PWA (appinstalled) أو أول فتح للتطبيق بعد التثبيت، نضبط العلامة ونعيد الفتح
-    var installFromEvent = false;
+    // الفتح من داخل التطبيق المثبّت (شاشة كاملة بدون شريط متصفح) يُعد تشغيلًا بعد التثبيت
+    var isInstalledApp = (window.matchMedia('(display-mode: standalone)').matches) || (navigator.standalone === true);
+    if(isInstalledApp && !ownerDone && !installed){ firstRunAfterInstall = '1'; }
+    // عند حدث تثبيت التطبيق PWA (appinstalled)، نضبط العلامة ونعيد الفتح
     window.addEventListener('appinstalled', function(){
         localStorage.setItem('elen_first_run', '1');
+        window.location.reload();
     });
-    if(installed){
-        if(firstRunAfterInstall){
-            // أول تشغيل بعد تثبيت التطبيق: يظهر الزران الأخضر والأحمر معًا
-            localStorage.removeItem('elen_first_run');
-            document.getElementById('btn1').style.display='flex';
-            document.getElementById('btn2').style.display='flex';
-            document.getElementById('note').innerHTML='تم تثبيت التطبيق - اختر نوع الدخول';
-        } else if(ownerDone){
-            // المالك دخل سابقًا: يختفي زر المالك (الأحمر) فقط، ويبقى الأخضر
-            document.getElementById('btn2').style.display='none';
-            document.getElementById('btn1').style.display='flex';
-            document.getElementById('note').innerHTML='تم تثبيت النظام على هذا الجهاز';
-        } else if(!ownerDone){
-            // النظام مثبت ولم يدخل المالك بعد: يظهر زر المالك (الأحمر) مرة واحدة فقط
-            document.getElementById('btn2').style.display='flex';
-            document.getElementById('btn1').style.display='none';
-            document.getElementById('note').innerHTML='لمرة واحدة فقط: ادخل من الزر الأحمر (2)';
-        }
+    if(firstRunAfterInstall){
+        // أول تشغيل بعد تثبيت التطبيق: يظهر الزران الأخضر والأحمر معًا
+        localStorage.removeItem('elen_first_run');
+        document.getElementById('btn1').style.display='flex';
+        document.getElementById('btn2').style.display='flex';
+        document.getElementById('note').innerHTML='تم تثبيت التطبيق - اختر نوع الدخول';
+    } else if(ownerDone){
+        // المالك دخل سابقًا: يختفي زر المالك (الأحمر) نهائيًا، ويبقى الأخضر
+        document.getElementById('btn2').style.display='none';
+        document.getElementById('btn1').style.display='flex';
+        document.getElementById('note').innerHTML='تم تثبيت النظام على هذا الجهاز';
+    } else if(installed){
+        // النظام مثبت ولم يدخل المالك بعد: يظهر زر المالك (الأحمر) مرة واحدة فقط
+        document.getElementById('btn2').style.display='flex';
+        document.getElementById('btn1').style.display='none';
+        document.getElementById('note').innerHTML='لمرة واحدة فقط: ادخل من الزر الأحمر (2)';
     } else {
-        // لم يثبت النظام بعد: يظهر دخول المستأجر (الأخضر) فقط
+        // لم يثبت النظام بعد (متصفح عادي قبل التثبيت): يظهر دخول المستأجر (الأخضر) فقط
         document.getElementById('btn1').style.display='flex';
         document.getElementById('btn2').style.display='none';
         document.getElementById('note').innerHTML='بعد تثبيت النظام سيظهر دخول 2';
