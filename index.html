@@ -17,8 +17,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
 .logo img{max-width:180px;height:50px;object-fit:contain}
 .title{font-size:18px;font-weight:900;color:var(--hd);margin-bottom:6px}
 .sub{font-size:12px;color:var(--mt);margin-bottom:25px}
-.btn{display:flex;align-items:center;gap:10px;width:100%;padding:14px 18px;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:12px;transition:transform .15s}
+.btn{display:flex;align-items:center;gap:10px;width:100%;padding:14px 18px;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:12px;transition:transform .15s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .btn:hover{transform:translateY(-2px)}
+.btn.hidden{display:none!important}
 .btn-o{background:#2D6B45;color:#fff}
 .btn-t{background:#C62828;color:#fff}
 .btn .ic{font-size:20px}
@@ -51,9 +52,34 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--hd);min-hei
     </div>
     <div class="title">نظام ELEN SOFT المحاسبي</div>
     <div class="sub">منصة إدارة متكاملة - اختر نوع الدخول</div>
-    <a href="owner.html" class="btn btn-o"><span class="ic">1</span>دخول 1</a>
-    <a href="tenant.html" class="btn btn-t"><span class="ic">2</span>دخول 2</a>
-    <div class="note">ادخل من الزر الأخضر (1) أو الزر الأحمر (2)</div>
+    <a href="owner.html" class="btn btn-o" id="btn1" style="display:none"><span class="ic">1</span>دخول 1</a>
+    <a href="tenant.html" class="btn btn-t" id="btn2"><span class="ic">2</span>دخول 2</a>
+    <div class="note" id="note">ادخل من الزر الأخضر (1) أو الزر الأحمر (2)</div>
+<script>
+(function(){
+    // منع النسخ والتحديد على الأزرار
+    var btns=document.querySelectorAll('.btn');
+    btns.forEach(function(b){
+        b.addEventListener('selectstart',function(e){e.preventDefault()});
+        b.addEventListener('contextmenu',function(e){e.preventDefault()});
+        b.addEventListener('dragstart',function(e){e.preventDefault()});
+        b.addEventListener('copy',function(e){e.preventDefault()});
+        b.addEventListener('touchstart',function(){} ,{passive:true});
+    });
+    // إخفاء الزر الأحمر (دخول 2) نهائيًا بعد أول تثبيت للمنشأة
+    // يتم وضع علامة 'installed' في localStorage عند تثبيت النظام لأول مرة من tenant.html
+    if(localStorage.getItem('elen_installed')){
+        document.getElementById('btn2').style.display='none';
+        document.getElementById('btn1').style.display='flex';
+        document.getElementById('note').innerHTML='تم تثبيت النظام';
+    }
+    // إظهار زر المالك فقط إذا تم تثبيت النظام (لا معنى له قبله)
+    else{
+        document.getElementById('btn1').style.display='none';
+        document.getElementById('note').innerHTML='بعد تثبيت النظام سيظهر دخول 1';
+    }
+})();
+</script>
 </div>
 </body>
 </html>

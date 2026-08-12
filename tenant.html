@@ -207,7 +207,7 @@ table.doc-table tbody tr:nth-child(even) { background: #f8f9fa; }
     </div>
     <div class="logo-right">
         <select id="branch-selector" onchange="_currentBranch=this.value; localStorage.setItem('nr_current_branch', this.value); render();" style="background:rgba(255,255,255,.1); color:#fff; border: 1px solid rgba(255,255,255,.2); border-radius:6px; padding:4px 8px; font-size:10px; font-weight:600; cursor:pointer;"></select>
-        <span id="sync-status" onclick="forceCloudSync()" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:#A5D6A7;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="حالة المزامنة"><span id="sync-icon">✅</span> <span id="sync-text">متصل</span></span><span class="role-badge" id="role-badge">مدير</span><button class="logout-btn" onclick="doLogout()">🚪</button><button class="gear-btn" onclick="openGlobalSearch()">🔍</button><button class="gear-btn" onclick="toggleFocusMode()" id="focus-mode-btn" title="وضع التركيز">👁️</button><button class="gear-btn" onclick="toggleDarkMode()">🌙</button><button class="gear-btn" onclick="openSettings()">⚙️</button>
+        <span id="sync-status" onclick="forceCloudSync()" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.1);color:#A5D6A7;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="حالة المزامنة"><span id="sync-icon">✅</span> <span id="sync-text">متصل</span></span><span class="role-badge" id="role-badge">مدير</span><button class="logout-btn" onclick="doLogout()">🚪</button><button class="gear-btn" onclick="openGlobalSearch()">🔍</button><button class="gear-btn" onclick="toggleFocusMode()" id="focus-mode-btn" title="وضع التركيز">👁️</button><button class="gear-btn" onclick="toggleDarkMode()">🌙</button><button class="gear-btn" onclick="openSettings()">⚙️</button><button class="gear-btn" onclick="openSupportForm()" title="تواصل مع شركة ELEN SOFT" style="background:linear-gradient(135deg,#C45D3E,#E8735A);color:#fff;font-size:12px;width:auto;padding:0 8px">💬</button>
     </div>
 </header>
 <nav class="tabs-bar" id="tabs-bar"></nav>
@@ -428,6 +428,7 @@ async function verifyActivationCode() {
         await db.collection("tenants_requests").doc(requestId).delete();
         localStorage.setItem('nr_tenant_id', cloudId);
         localStorage.setItem('nr_nursery_name', data.name);
+        localStorage.setItem('elen_installed', '1');
         var localUsers = getUsers();
         localUsers.push({id: uid(), username: data.email, password: data.passwordHash, role: 'مدير نظام'});
         saveUsers(localUsers);
@@ -450,6 +451,7 @@ async function tenantSecureLogin() {
             if(tenantData.status !== 'active') { errEl.textContent = '🚫 الحساب موقوف، تواصل مع الإدارة'; return; }
             localStorage.setItem('nr_tenant_id', tenantData.cloudId);
             localStorage.setItem('nr_nursery_name', tenantData.name);
+            localStorage.setItem('elen_installed', '1');
             currentUser = { username: tenantData.name, role: 'مدير نظام' };
             currentRole = 'مدير نظام';
             document.getElementById('login-overlay').classList.add('hidden');
@@ -1137,62 +1139,6 @@ function closeShift() {
     printZReport(); // طباعة تقرير الإقفال
     toast('✅ تم إقفال الوردية بنجاح', 's');
 }
-function rShifts() {
-    var h = getPrintHeaderHtml('إدارة الورديات') + '<div class="toolbar no-print">';
-    if(!_activeShift) {
-        h += '<button class="btn btn-g" onclick="openShift()">🔓 فتح وردية جديدة</button>';
-    } else {
-        h += '<button class="btn btn-d" onclick="closeShift()">🔒 إقفال الوردية الحالية</button>';
-    }
-    h += '</div>';
-    
-    if(_activeShift) {
-        h += '<div class="card" style="background:var(--gnl); border:1px solid var(--gn); margin-bottom:15px;">';
-        h += '<h4 style="color:var(--gn); margin-bottom:10px;">✅ الوردية الحالية مفتوحة</h4>';
-        h += '<div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:12px;">';
-        h += '<div>المستخدم: <b>'+H(_activeShift.user)+'</b></div>';
-        h += '<div>وقت البدء: <b>'+new Date(_activeShift.startTime).toLocaleString('ar-EG')+'</b></div>';
-        h += '</div></div>';
-    } else {
-        h += '<div class="card"><div class="empty">لا توجد وردية مفتوحة حالياً. يرجى فتح وردية لبدء التسجيل.</div></div>';
-    }
-    
-    // عرض سجل الورديات السابقة
-    h += '<div class="card"><h4>سجل الورديات</h4><div class="tbl-wrap"><table><thead><tr><th>رقم</th><th>المستخدم</th><th>البداية</th><th>النهاية</th></tr></thead><tbody>';
-    var shifts = D.shifts || [];
-    if(shifts.length === 0) h += '<tr><td colspan="4"><div class="empty">لا توجد ورديات سابقة</div></td></tr>';
-    shifts.slice().reverse().forEach(function(s) {
-        h += '<tr><td>#'+s.id+'</td><td>'+H(s.user)+'</td><td>'+new Date(s.startTime).toLocaleString('ar-EG')+'</td><td>'+(s.endTime?new Date(s.endTime).toLocaleString('ar-EG'):'-')+'</td></tr>';
-    });
-    h += '</tbody></table></div></div>';
-    return h;
-}
-
-function openShift() {
-    if(_activeShift) { toast('⚠️ هناك وردية مفتوحة بالفعل', 'e'); return; }
-    _activeShift = {
-        id: uid(),
-        user: currentUser ? currentUser.username : 'نظام',
-        startTime: new Date().toISOString()
-    };
-    localStorage.setItem('nr_active_shift', JSON.stringify(_activeShift));
-    render();
-    toast('✅ تم فتح الوردية بنجاح', 's');
-}
-
-function closeShift() {
-    if(!_activeShift) return;
-    if(!confirm('هل تريد إقفال الوردية الحالية وطباعة التقرير؟')) return;
-    _activeShift.endTime = new Date().toISOString();
-    if(!D.shifts) D.shifts = [];
-    D.shifts.push(_activeShift);
-    saveD('shifts');
-    localStorage.removeItem('nr_active_shift');
-    _activeShift = null;
-    render();
-    printZReport(); // طباعة تقرير الإقفال
-    toast('✅ تم إقفال الوردية بنجاح', 's');
-}
 
 // 2. شاشة أداء البائعين (Salesmen)
 function rSalesmen() {
@@ -1337,7 +1283,121 @@ if (installBtn) {
 window.addEventListener('appinstalled', function() { 
     if (installBtn) installBtn.style.display = 'none'; 
     deferredPrompt = null; 
+    localStorage.setItem('elen_installed', '1');
 });
+if(currentUser || localStorage.getItem('nr_tenant_id')) { applySupportBtnVisibility(); }
+
+/* ===== نظام التواصل مع شركة ELEN SOFT ===== */
+var SUPPORT_TOPICS = [
+    {value: 'تفعيل خدمة', label: '✅ طلب تفعيل خدمة', icon: '✅'},
+    {value: 'صيانة', label: '🔧 طلب صيانة', icon: '🔧'},
+    {value: 'شكوى', label: '⚠️ شكوى', icon: '⚠️'},
+    {value: 'استفسار', label: '❓ استفسار', icon: '❓'},
+    {value: 'أخرى', label: '📝 أخرى', icon: '📝'}
+];
+var SUPPORT_PHONE = '967770012528';
+
+async function applySupportBtnVisibility() {
+    try {
+        var cfg = await db.collection("system_control").doc("owner_config").get();
+        var enabled = !(cfg.exists && cfg.data() && cfg.data().supportEnabled === false);
+        var btn = document.querySelector('button[onclick="openSupportForm()"]');
+        if(btn) btn.style.display = enabled ? '' : 'none';
+    } catch(e) { /* المالك لا يتحكم => يُعرض الزر افتراضيًا */ }
+}
+function openSupportForm() {
+    var name = getNurseryName();
+    var email = currentUser ? currentUser.username : '';
+    var code = localStorage.getItem('nr_tenant_id') || '-';
+    var phone = localStorage.getItem('nr_phone') || '';
+    var topicOpts = SUPPORT_TOPICS.map(function(t) {
+        return '<option value="'+t.value+'">'+t.label+'</option>';
+    }).join('');
+    var h = '';
+    h += '<div style="background:var(--gnd);color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:11px">';
+    h += '<div style="font-weight:800;font-size:12px;margin-bottom:6px;color:#A5D6A7">بيانات المنشأة (تُرفق تلقائيًا - غير قابلة للتعديل)</div>';
+    h += '<div>الاسم: <b>'+H(name)+'</b></div>';
+    h += '<div>البريد: <b>'+H(email||'-')+'</b> | الرمز: <b dir="ltr" style="display:inline-block">'+H(code)+'</b></div>';
+    if(phone) h += '<div>الهاتف: <b>'+H(phone)+'</b></div>';
+    h += '</div>';
+    h += '<div class="fg"><label>موضوع الطلب</label><select id="sup-topic">'+topicOpts+'</select></div>';
+    h += '<div class="fg"><label>تفاصيل الرسالة</label><textarea id="sup-msg" rows="5" placeholder="اكتب تفاصيل طلبك هنا..." style="width:100%;padding:10px 12px;border:1.5px solid var(--bd);border-radius:9px;font-size:12px;background:var(--card);color:var(--fg);box-shadow:var(--sh);resize:vertical;font-family:inherit"></textarea></div>';
+    document.getElementById('m-title').textContent = '💬 تواصل مع شركة ELEN SOFT';
+    document.getElementById('m-body').innerHTML = h;
+    document.getElementById('m-foot').innerHTML = '<button class="btn btn-g" onclick="submitSupportRequest()">📤 إرسال الطلب</button> <button class="btn btn-o" onclick="closeM()">إلغاء</button>';
+    document.getElementById('modal').classList.add('open');
+}
+
+async function submitSupportRequest() {
+    var topic = document.getElementById('sup-topic').value;
+    var msg = document.getElementById('sup-msg').value.trim();
+    if(!msg) { toast('اكتب تفاصيل طلبك', 'e'); return; }
+    try {
+        var doc = await db.collection("system_control").doc("support_requests").get();
+        var list = (doc.exists && doc.data().list) ? doc.data().list : [];
+        list.push({
+            id: 'SUP-' + Date.now().toString(36).toUpperCase(),
+            tenantId: localStorage.getItem('nr_tenant_id') || '',
+            tenantName: getNurseryName(),
+            tenantEmail: currentUser ? currentUser.username : '',
+            tenantPhone: localStorage.getItem('nr_phone') || '',
+            topic: topic,
+            message: msg,
+            status: 'جديد',
+            createdAt: new Date().toISOString()
+        });
+        await db.collection("system_control").doc("support_requests").set({ list: list });
+        toast('✅ تم إرسال طلبك وأُرفق في أرشيف التوثيق', 's');
+        closeM();
+    } catch(e) { toast('خطأ في الإرسال، حاول مرة أخرى', 'e'); }
+}
+
+async function openSupportHistory() {
+    try {
+        var tid = localStorage.getItem('nr_tenant_id') || '';
+        var doc = await db.collection("system_control").doc("support_requests").get();
+        var list = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var mine = list.filter(function(x) { return x.tenantId === tid; }).reverse();
+        var h = '';
+        if(mine.length === 0) {
+            h = '<div class="empty">لا توجد طلبات سابقة</div>';
+        } else {
+            h += '<div class="tbl-wrap"><table><thead><tr><th>الرمز</th><th>الموضوع</th><th>الحالة</th><th>التاريخ</th><th>التفاصيل</th></tr></thead><tbody>';
+            mine.forEach(function(x) {
+                var d = new Date(x.createdAt);
+                var ds = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+                h += '<tr><td dir="ltr">'+x.id+'</td><td>'+x.topic+'</td><td><span class="bdg '+(x.status==='جديد'?'bdg-y':'bdg-g')+'">'+x.status+'</span></td><td>'+ds+'</td><td><button class="btn btn-o" style="padding:4px 10px" onclick="showSupportDetail(\''+x.id+'\')">عرض</button></td></tr>';
+            });
+            h += '</tbody></table></div>';
+        }
+        window._supHist = mine;
+        document.getElementById('m-title').textContent = '📋 سجل طلباتي';
+        document.getElementById('m-body').innerHTML = h;
+        document.getElementById('m-foot').innerHTML = '<button class="btn btn-o" onclick="closeM()">إغلاق</button>';
+        document.getElementById('modal').classList.add('open');
+    } catch(e) { toast('خطأ في التحميل', 'e'); }
+}
+
+function showSupportDetail(id) {
+    var x = (window._supHist||[]).find(function(s){return s.id===id;});
+    if(!x) return;
+    var d = new Date(x.createdAt);
+    var ds = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();
+    var h = '<div style="background:var(--gnd);color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:11px">';
+    h += '<div style="color:#A5D6A7;font-weight:800;margin-bottom:5px">بيانات موثقة (غير قابلة للتعديل)</div>';
+    h += '<div>رقم الطلب: <b dir="ltr">'+x.id+'</b></div>';
+    h += '<div>المنشأة: <b>'+H(x.tenantName)+'</b> | الرمز: <b dir="ltr">'+H(x.tenantId)+'</b></div>';
+    h += '<div>البريد: <b>'+H(x.tenantEmail||'-')+'</b> | الهاتف: <b>'+H(x.tenantPhone||'-')+'</b></div>';
+    h += '<div>التاريخ: <b>'+ds+'</b></div>';
+    h += '</div>';
+    h += '<div style="font-size:12px;margin-bottom:8px;font-weight:700">الموضوع: '+x.topic+'</div>';
+    h += '<div style="font-size:12px;background:#FAFAF5;border:1px solid var(--bd);border-radius:10px;padding:12px;white-space:pre-wrap;line-height:1.8">'+H(x.message)+'</div>';
+    var waMsg = 'طلب موثق رقم '+x.id+' من '+x.tenantName+' (رمز: '+x.tenantId+')\nالموضوع: '+x.topic+'\n'+x.message;
+    h += '<div style="margin-top:12px;text-align:center"><button class="btn btn-g" onclick="window.open(\'https://wa.me/'+SUPPORT_PHONE+'?text='+encodeURIComponent(waMsg)+'\', \'_blank\')">واتساب ELEN SOFT</button></div>';
+    document.getElementById('m-title').textContent = '📄 تفاصيل الطلب';
+    document.getElementById('m-body').innerHTML = h;
+    document.getElementById('m-foot').innerHTML = '<button class="btn btn-o" onclick="openSupportHistory()">رجوع</button> <button class="btn btn-o" onclick="closeM()">إغلاق</button>';
+}
 </script>
 </body>
 </html>

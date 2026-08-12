@@ -104,7 +104,11 @@ async function checkLogin() {
 
 function showOwnerSetupScreen() {
     document.getElementById('login-overlay').style.display = 'flex';
-    document.getElementById('login-box').innerHTML = '<h2 style="margin-bottom:20px">👑 تثبيت النظام</h2><p style="font-size:13px;margin-bottom:20px;color:var(--mt)">سيتم إرسال طلب الموافقة إلى بريد المالك.</p><input type="email" value="'+OWNER_EMAIL+'" readonly style="width:100%;padding:10px;margin-bottom:15px;text-align:center;background:#f0f0f0"><button class="btn btn-g" style="width:100%" onclick="sendOwnerApprovalEmail()">📤 إرسال طلب الموافقة</button>';
+    // إخفاء بريد المالك (يُعرض أول وآخر حرفين فقط للحماية من محاولات الاختراق)
+    var maskedEmail = OWNER_EMAIL.replace(/^(.{1,2})(.*)(@.*)$/, function(m, first, mid, rest) {
+        return first + Array(Math.min(mid.length, 6) + 1).join('*') + rest;
+    });
+    document.getElementById('login-box').innerHTML = '<h2 style="margin-bottom:20px">👑 تثبيت النظام</h2><p style="font-size:13px;margin-bottom:20px;color:var(--mt)">سيتم إرسال طلب الموافقة إلى بريد المالك المسجل لدى الشركة.</p><div style="font-size:15px;font-weight:800;color:var(--gnd);direction:ltr;letter-spacing:1px;margin-bottom:15px;padding:10px;background:#f0f0f0;border-radius:10px" dir="ltr">'+maskedEmail+'</div><button class="btn btn-g" style="width:100%" onclick="sendOwnerApprovalEmail()">📤 إرسال طلب الموافقة</button>';
 }
 
 function sendOwnerApprovalEmail() {
@@ -139,6 +143,7 @@ function getTenantPageUrl() {
 }
 // فتح صفحة المستأجرين مع تمرير رمز المنشأة للدخول المباشر
 function openTenantFor(tenantId) {
+    localStorage.setItem('elen_installed', '1');
     var url = getTenantPageUrl() + '?tenant_id=' + encodeURIComponent(tenantId);
     window.open(url, '_blank');
 }
@@ -151,13 +156,23 @@ async function renderAdmin() {
     document.getElementById('login-overlay').style.display = 'none';
     var h = '<div class="kpi-grid"><div class="kpi-card"><div class="kpi-icon" style="background:var(--gnl);color:var(--gn)">🏢</div><div><div class="kpi-val" id="kpi-total">-</div><div class="kpi-lbl">منشآت مفعلة</div></div></div><div class="kpi-card"><div class="kpi-icon" style="background:#FDE8E8;color:var(--dn)">⏳</div><div><div class="kpi-val" id="kpi-pending">-</div><div class="kpi-lbl">طلبات معلقة</div></div></div></div>';
     h += '<div class="card"><h3>⏳ طلبات التفعيل المعلقة (تصل عبر رسالة SMS/واتساب برمز المنشأة)</h3><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الهاتف</th><th>الرمز</th><th>إجراء</th></tr></thead><tbody id="pending-tbody"><tr><td colspan="4"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
-    h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>إجراء</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>🏢 المنشآت المفعلة</h3><div style="margin-bottom:15px"><button class="btn btn-g" onclick="showTenantModal()">➕ إضافة منشأة يدوياً</button></div><div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;background:var(--gnl);border:1px solid var(--gn);border-radius:12px;padding:12px 16px"><span style="font-size:12px;font-weight:700">💬 زر التواصل مع الشركة في صفحة المستأجرين:</span><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="support-toggle" onchange="toggleSupportBtn(this.checked)" style="width:18px;height:18px"><span id="support-toggle-lbl" style="font-size:12px;font-weight:700">جاري التحميل...</span></label></div><div class="tbl-wrap"><table><thead><tr><th>اسم المنشأة</th><th>الرمز</th><th>النشاط</th><th>نهاية الاشتراك</th><th>إجراء</th></tr></thead><tbody id="active-tbody"><tr><td colspan="5"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
+    h += '<div class="card"><h3>💬 طلبات التواصل والتوثيق (من المستأجرين)</h3><div class="tbl-wrap"><table><thead><tr><th>رقم الطلب</th><th>المنشأة</th><th>الرمز</th><th>البريد</th><th>الهاتف</th><th>الموضوع</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody id="support-tbody"><tr><td colspan="9"><div class="empty">جاري التحميل...</div></td></tr></tbody></table></div></div>';
     document.getElementById('admin-content').innerHTML = h;
     loadTenants();
 }
 
 async function loadTenants() {
     try {
+        try {
+            var cfg = await db.collection("system_control").doc("owner_config").get();
+            if(cfg.exists && cfg.data()) {
+                var data = cfg.data();
+                var enabled = data.supportEnabled !== false;
+                var el = document.getElementById('support-toggle');
+                if(el) { el.checked = enabled; document.getElementById('support-toggle-lbl').innerText = enabled ? '✅ مفعّل' : '🔴 معطّل'; }
+            }
+        } catch(e) {}
         var doc = await db.collection("system_control").doc("all_tenants").get();
         var arr = (doc.exists && doc.data().list) ? doc.data().list : [];
         window.tenantsCache = arr;
@@ -178,7 +193,71 @@ async function loadTenants() {
             aH += '<tr><td>'+t.name+'</td><td>'+t.id+'</td><td>'+(t.type||'nursery')+'</td><td>'+(t.renewalDate||'-')+'</td><td><button class="btn btn-g" onclick="openTenantFor(\''+t.id+'\')">🖥️ دخول</button> <button class="btn btn-o" onclick="showTenantModal(\''+t.id+'\')">✏️ تعديل</button></td></tr>';
         });
         document.getElementById('active-tbody').innerHTML = aH;
+        loadSupportRequests();
     } catch(e) { toast('خطأ في تحميل البيانات', 'e'); }
+}
+
+async function loadSupportRequests() {
+    try {
+        var doc = await db.collection("system_control").doc("support_requests").get();
+        var list = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var sorted = list.slice().sort(function(a,b){return (b.createdAt||'').localeCompare(a.createdAt||'');});
+        var h = '';
+        if(sorted.length === 0) h = '<tr><td colspan="9"><div class="empty">لا توجد طلبات تواصل</div></td></tr>';
+        sorted.forEach(function(x) {
+            var d = new Date(x.createdAt);
+            var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()) : '-';
+            var topicCls = {'تفعيل خدمة':'bg-c','صيانة':'bg-y','شكوى':'bg-r'}[x.topic]||'';
+            h += '<tr>';
+            h += '<td dir="ltr">'+x.id+'</td>';
+            h += '<td>'+H(x.tenantName||'-')+'</td>';
+            h += '<td dir="ltr">'+H(x.tenantId||'-')+'</td>';
+            h += '<td dir="ltr">'+H(x.tenantEmail||'-')+'</td>';
+            h += '<td>'+H(x.tenantPhone||'-')+'</td>';
+            h += '<td><span class="bdg '+(topicCls==='bg-r'?'bdg-r':topicCls==='bg-y'?'bdg-y':'bdg-c')+'">'+x.topic+'</span></td>';
+            h += '<td><span class="bdg '+(x.status==='جديد'?'bdg-y':x.status==='تم'?'bdg-g':'bdg-c')+'">'+x.status+'</span></td>';
+            h += '<td>'+ds+'</td>';
+            h += '<td><button class="btn btn-o" onclick="showSupportDetailOwner(\''+x.id+'\')">عرض</button></td>';
+            h += '</tr>';
+        });
+        window._supOwnerList = sorted;
+        document.getElementById('support-tbody').innerHTML = h;
+    } catch(e) { if(document.getElementById('support-tbody')) document.getElementById('support-tbody').innerHTML = '<tr><td colspan="9"><div class="empty">خطأ في التحميل</div></td></tr>'; }
+}
+
+function showSupportDetailOwner(id) {
+    var x = (window._supOwnerList||[]).find(function(s){return s.id===id;});
+    if(!x) return;
+    var d = new Date(x.createdAt);
+    var ds = d ? (d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes()) : '-';
+    var h = '<div style="background:var(--gnd);color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:11px">';
+    h += '<div style="color:#A5D6A7;font-weight:800;margin-bottom:5px">بيانات موثقة (إثبات الطلب - غير قابلة للتعديل)</div>';
+    h += '<div>رقم الطلب: <b dir="ltr">'+x.id+'</b> | الحالة: <b>'+x.status+'</b></div>';
+    h += '<div>المنشأة: <b>'+H(x.tenantName)+'</b> | الرمز: <b dir="ltr">'+H(x.tenantId)+'</b></div>';
+    h += '<div>البريد: <b>'+H(x.tenantEmail||'-')+'</b> | الهاتف: <b>'+H(x.tenantPhone||'-')+'</b></div>';
+    h += '<div>التاريخ: <b>'+ds+'</b></div>';
+    h += '</div>';
+    h += '<div style="font-size:12px;margin-bottom:8px;font-weight:700">الموضوع: '+x.topic+'</div>';
+    h += '<div style="font-size:12px;background:#FAFAF5;border:1px solid var(--bd);border-radius:10px;padding:12px;white-space:pre-wrap;line-height:1.8">'+H(x.message)+'</div>';
+    h += '<div class="fg" style="margin-top:14px"><label>تغيير حالة الطلب</label><select id="sup-status"><option value="جديد" '+(x.status==='جديد'?'selected':'')+'>🟡 جديد</option><option value="قيد المعالجة" '+(x.status==='قيد المعالجة'?'selected':'')+'>🔵 قيد المعالجة</option><option value="تم" '+(x.status==='تم'?'selected':'')+'>✅ تم</option></select></div>';
+    document.getElementById('m-title').innerText = '📄 طلب تواصل - '+x.id;
+    document.getElementById('m-body').innerHTML = h;
+    document.getElementById('m-foot').innerHTML = '<button class="btn btn-g" onclick="updateSupportStatus(\''+x.id+'\')">💾 حفظ الحالة</button> <button class="btn btn-o" onclick="closeM()">إغلاق</button>';
+    document.getElementById('modal').classList.add('open');
+}
+
+async function updateSupportStatus(id) {
+    try {
+        var doc = await db.collection("system_control").doc("support_requests").get();
+        var list = (doc.exists && doc.data().list) ? doc.data().list : [];
+        var idx = list.findIndex(function(x){return x.id===id;});
+        if(idx === -1) { toast('الطلب غير موجود', 'e'); return; }
+        list[idx].status = document.getElementById('sup-status').value;
+        await db.collection("system_control").doc("support_requests").set({ list: list });
+        toast('✅ تم تحديث حالة الطلب', 's');
+        closeM();
+        loadSupportRequests();
+    } catch(e) { toast('خطأ في الحفظ', 'e'); }
 }
 
 function showTenantModal(id) {
@@ -229,6 +308,14 @@ async function approveTenant(id) {
     } catch(e) { toast('خطأ', 'e'); }
 }
 
+function H(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+async function toggleSupportBtn(enabled) {
+    try {
+        await db.collection("system_control").doc("owner_config").set({ supportEnabled: enabled }, { merge: true });
+        document.getElementById('support-toggle-lbl').innerText = enabled ? '✅ مفعّل' : '🔴 معطّل';
+        toast(enabled ? '✅ تم تفعيل زر التواصل' : '🔴 تم إيقاف زر التواصل', 's');
+    } catch(e) { toast('خطأ في الحفظ', 'e'); }
+}
 checkLogin();
 </script>
 </body>
