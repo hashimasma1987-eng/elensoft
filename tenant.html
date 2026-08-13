@@ -530,6 +530,9 @@ async function saveNewPassword() {
         currentUser = { username: username, role: 'مدير نظام', password: hashedPass };
         currentRole = 'مدير نظام';
         localStorage.setItem('elen_first_user_done', '1');
+        // حفظ الحساب محليًا على الجهاز لضمان الدخول بدون إنترنت
+        upsertLocalAccount({ email: String(c.email||'').trim().toLowerCase(), username: username, displayName: c.name, phone: c.phone || '', passwordHash: hashedPass, cloudId: c.cloudId });
+        localStorage.setItem('nr_last_user', JSON.stringify({ username: username, email: String(c.email||'').trim().toLowerCase(), role: 'مدير نظام', passwordHash: hashedPass, cloudId: c.cloudId }));
         _activationCtx = null;
         document.getElementById('login-overlay').style.display = 'none';
         applySupportBtnVisibility();
@@ -538,6 +541,34 @@ async function saveNewPassword() {
         setTimeout(function(){ openSettings(); }, 600);
     } catch(e) { toast('❌ خطأ أثناء حفظ البيانات', 'e'); }
 }
+/* ============ الدخول المحلي (بدون إنترنت) ============ */
+function getLocalAccounts() {
+    try { var a = JSON.parse(localStorage.getItem('nr_local_accounts')); return Array.isArray(a) ? a : []; } catch(e) { return []; }
+}
+function upsertLocalAccount(acc) {
+    var accounts = getLocalAccounts();
+    var key = (acc.email || '') + '|' + (acc.username || '');
+    var idx = accounts.findIndex(function(a) { return (a.email||'') === acc.email && (a.username||'') === acc.username; });
+    if(idx !== -1) { accounts[idx] = acc; } else { accounts.push(acc); }
+    localStorage.setItem('nr_local_accounts', JSON.stringify(accounts));
+}
+/* دالة الدخول النهائية المشتركة (تُستدعى بعد التحقق المحلي أو السحابي) */
+function completeLocalLogin(email, displayName, cloudId, usernameLabel) {
+    localStorage.setItem('nr_tenant_id', cloudId);
+    localStorage.setItem('nr_nursery_name', displayName);
+    localStorage.setItem('elen_installed', '1');
+    localStorage.setItem('elen_first_run', '1');
+    var savedUser = { username: usernameLabel || displayName || 'مدير', email: email || '', role: 'مدير نظام' };
+    currentUser = { username: usernameLabel || displayName || 'مدير', role: 'مدير نظام' };
+    currentRole = 'مدير نظام';
+    localStorage.setItem('nr_last_user', JSON.stringify(savedUser));
+    document.getElementById('login-overlay').classList.add('hidden');
+    applySupportBtnVisibility();
+    initApp();
+    // مزامنة الميزات من السحابة في الخلفية (دون حجب الدخول)
+    try { if (typeof FEATURES_SYNC === 'function') FEATURES_SYNC().then(function(){ applyFeatsUI(); }).catch(function(){}); } catch(e) {}
+    toast('✅ تم تسجيل الدخول بنجاح', 's');
+}
 async function tenantSecureLogin() {
     var email = document.getElementById('login-email').value;
     var pass = document.getElementById('login-pass').value;
@@ -545,36 +576,49 @@ async function tenantSecureLogin() {
     errEl.textContent = '';
     if(!email || !pass) { errEl.textContent = 'أدخل اسم المستخدم أو البريد وكلمة السر'; return; }
     var hashedInputPass = await encryptPassword(pass);
+    /* (1) المسار المحلي: التحقق من الحسابات المحفوظة على الجهاز دون أي اتصال */
+    var inputKey = email.trim().toLowerCase();
+    var accounts = getLocalAccounts();
+    var localMatch = null;
+    for(var i = 0; i < accounts.length; i++) {
+        var a = accounts[i];
+        if((a.email && a.email === inputKey) || (a.username && a.username === email.trim())) { localMatch = a; break; }
+    }
+    if(localMatch) {
+        if(localMatch.passwordHash === hashedInputPass) { completeLocalLogin(localMatch.email, localMatch.displayName, localMatch.cloudId, localMatch.username); return; }
+        errEl.textContent = '❌ كلمة السر غير صحيحة';
+        return;
+    }
+    /* (2) المسار السحابي: عند عدم وجود الحساب محليًا (أول دخول من جهاز آخر أو جهاز منتهي النسخ) */
     try {
-        var userOrEmail = email.trim().toLowerCase();
+        if(!navigator.onLine) { errEl.textContent = '⚠️ الحساب غير محفوظ على هذا الجهاز ولا يوجد اتصال بالإنترنت — سجّل الدخول من جهازك المسجّل أو أعد الاتصال بالشبكة'; return; }
+        await initFirebase();
+        if(!db) { errEl.textContent = '❌ الحساب غير موجود على هذا الجهاز ولا يوجد اتصال بالإنترنت'; return; }
+        var userOrEmail = inputKey;
         var snapshot = await db.collection("tenants").where("email", "==", userOrEmail).limit(1).get();
         if(snapshot.empty) snapshot = await db.collection("tenants").where("username", "==", email.trim()).limit(1).get();
-        if(snapshot.empty) { errEl.textContent = '⚠️ الحساب غير موجود'; return; }
+        if(snapshot.empty) { errEl.textContent = '⚠️ الحساب غير موجود على هذا الجهاز أو في السحابة'; return; }
         var tenantData = snapshot.docs[0].data();
         if(tenantData.status === 'awaiting_password') { errEl.textContent = '⏳ حسابك بانتظار تعيين كلمة السر - أكمل التفعيل'; setTimeout(function(){ document.getElementById('login-error').dataset.awaiting='0'; showLoginView('activate'); document.getElementById('act-email').value = tenantData.email; }, 1500); return; }
         if(tenantData.passwordHash === hashedInputPass) {
             if(tenantData.status !== 'active') { errEl.textContent = '🚫 الحساب موقوف، تواصل مع الإدارة'; return; }
-            localStorage.setItem('nr_tenant_id', tenantData.cloudId);
-            localStorage.setItem('nr_nursery_name', tenantData.name);
-            localStorage.setItem('elen_installed', '1');
-            localStorage.setItem('elen_first_run', '1');
-            currentUser = { username: tenantData.name, role: 'مدير نظام' };
-            currentRole = 'مدير نظام';
-            document.getElementById('login-overlay').classList.add('hidden');
-            initApp();
-            toast('✅ تم تسجيل الدخول بنجاح', 's');
+            // حفظ الحساب محليًا بعد أول دخول ناجح من السحابة (ليعمل الدخول لاحقًا بدون إنترنت)
+            upsertLocalAccount({ email: String(tenantData.email||'').trim().toLowerCase(), username: String(tenantData.username||''), displayName: tenantData.name, phone: tenantData.phone || '', passwordHash: hashedInputPass, cloudId: tenantData.cloudId });
+            completeLocalLogin(tenantData.email, tenantData.name, tenantData.cloudId, tenantData.username);
         } else {
             errEl.textContent = '❌ كلمة السر غير صحيحة';
         }
-    } catch(e) { errEl.textContent = '❌ خطأ في الاتصال بالسحابة'; }
+    } catch(e) { errEl.textContent = '❌ الحساب غير موجود على هذا الجهاز ولا يوجد اتصال بالإنترنت'; }
 }
 async function checkLogin(){
-    await initFirebase(); 
-    // دعم الدخول المباشر عبر رابط من صفحة المالك: tenant.html?tenant_id=NUR-xxx
+    // تهيئة الاتصال السحابي مبكرًا (دون حجب الدخول) حتى تكون العمليات مثل التسجيل والدخول جاهزة
+    initFirebase().catch(function(){});
+    // (1) الدخول المباشر عبر رابط من صفحة المالك: tenant.html?tenant_id=NUR-xxx
     var urlParams = new URLSearchParams(window.location.search);
     var directTenantId = urlParams.get('tenant_id');
     if(directTenantId) {
         try {
+            await initFirebase();
             var directDoc = await db.collection("tenants").doc(directTenantId).get();
             if(directDoc.exists && directDoc.data().status === 'active') {
                 var d = directDoc.data();
@@ -594,25 +638,59 @@ async function checkLogin(){
         } catch(e) { console.error("Direct login check failed", e); }
         toast('⚠️ المنشأة غير موجودة أو غير مفعلة، يرجى تسجيل الدخول يدوياً', 'e');
     }
+    // (2) الدخول المتذكر من الجهاز محليًا — فورًا دون أي انتظار للسحابة (يعمل بدون إنترنت)
     var savedCloudId = localStorage.getItem('nr_tenant_id');
     var savedName = localStorage.getItem('nr_nursery_name');
     if(savedCloudId) {
-        try {
-            var doc = await db.collection("tenants").doc(savedCloudId).get();
-            if(doc.exists && doc.data().status === 'active') {
-                currentUser = { username: savedName || 'مدير', role: 'مدير نظام' };
-                currentRole = 'مدير نظام';
-                localStorage.setItem('elen_installed', '1');
-                localStorage.setItem('elen_first_run', '1');
-                document.getElementById('login-overlay').classList.add('hidden');
-                applySupportBtnVisibility();
-                initApp();
-                return;
-            }
-        } catch(e) { console.error("Session check failed", e); }
+        var lastUser = null;
+        try { lastUser = JSON.parse(localStorage.getItem('nr_last_user')); } catch(e) {}
+        if(lastUser) {
+            currentUser = { username: lastUser.username || savedName || 'مدير', role: lastUser.role || 'مدير نظام' };
+            currentRole = lastUser.role || 'مدير نظام';
+            localStorage.setItem('elen_installed', '1');
+            localStorage.setItem('elen_first_run', '1');
+            document.getElementById('login-overlay').classList.add('hidden');
+            applySupportBtnVisibility();
+            applyFeatsUI();
+            // التحقق السحابي وحفظ النسخة الاحتياطية من السحابة في الخلفية (دون حجب الدخول)
+            _validateSessionInCloud(savedCloudId).catch(function(){});
+            initApp();
+            return;
+        }
     }
+    // (3) لا يوجد جلسة محفوظة — اعرض شاشة تسجيل الدخول
     document.getElementById('login-overlay').classList.remove('hidden');
     showLoginView('login');
+}
+/* التحقق من الجلسة وحفظ نسخة احتياطية من السحابة في الخلفية (دون حجب الدخول المحلي) */
+async function _validateSessionInCloud(savedCloudId) {
+    try {
+        await initFirebase();
+        if(!db) return;
+        var doc = await db.collection("tenants").doc(savedCloudId).get();
+        if(doc.exists) {
+            var d = doc.data();
+            if(d.status === 'active') {
+                // تحديث نسخة الحساب المحلية من السحابة ليظل الدخول بدون إنترنت موثوقًا
+                if(d.username && d.passwordHash) {
+                    upsertLocalAccount({ email: String(d.email||'').trim().toLowerCase(), username: String(d.username||''), displayName: d.name, phone: d.phone || '', passwordHash: d.passwordHash, cloudId: savedCloudId });
+                }
+            } else if(d.status === 'awaiting_password') {
+                /* الحساب ما زال بانتظار كلمة السر - أخرج المستخدم */
+                localStorage.removeItem('nr_last_user');
+                document.getElementById('login-overlay').classList.remove('hidden');
+                showLoginView('activate');
+                if(d.email) document.getElementById('act-email').value = d.email;
+                toast('⏳ حسابك بانتظار تعيين كلمة السر - أكمل التفعيل', 'e');
+                return;
+            } else if(d.status !== 'active') {
+                /* الحساب موقوف */
+                localStorage.removeItem('nr_last_user');
+                toast('🚫 الحساب موقوف، تواصل مع الإدارة', 'e');
+                return;
+            }
+        }
+    } catch(e) { /* انقطاع الإنترنت: يظل المستخدم داخلًا من النسخة المحلية */ }
 }
 async function checkAutoBackup() { 
     try { 
